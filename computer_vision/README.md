@@ -1,5 +1,0 @@
-# Computer Vision
-
-Inventory:
-- OpenCV
-
