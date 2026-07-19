@@ -8,13 +8,16 @@ from camera_api import Camera
 import puzzle_solver
 from const import *
 
+'''
+should be puzzle type agnostic, so if need change puzzle type, should only need to edit puzzle_solver.py
+'''
 
 
 class Puzzle:
     '''
     make class for GUI convenience
     '''
-    def __init__(self, puzzlepath="media/puzzles/puzzle.png", recalibrate=0, simulated=SIMULATION):
+    def __init__(self, puzzlepath="media/puzzles/puzzle.png", recalibrate=RECALIBRATE, simulated=SIMULATION):
 
         # filepath to selected puzzle
         self.puzzlepath : str = puzzlepath

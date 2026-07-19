@@ -14,10 +14,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from configs.robot import VACUUM_DIGITAL_OUT
 from send_UR_msg import send_urscript
-
+from const import *
 
 class Gripper:
-    def __init__(self, simulated=0):
+    def __init__(self, simulated=SIMULATION):
         self.simulated = simulated
         self.state = None
 

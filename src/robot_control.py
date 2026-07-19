@@ -3,27 +3,25 @@ turns the moves computed by puzzle_solver.process_frame() (translation/rotation
 per piece, in rectified-image pixel coordinates) into URScript pick/place
 sequences and runs them via the Gripper/send_urscript black boxes.
 
+pixel -> robot-frame XY now comes from the affine matrix fitted in
+calibrate_static.py (configs/config.json's "pixel_to_robot_affine"), not
+from hand-measured table geometry. See calibrate_static.py for how that
+matrix is produced.
+
 DRY_RUN prints each generated command instead of sending it -- keep this True
 until the moves have been checked against the real table.
 '''
 
 import json
-import math
 import os
 import sys
 
-# configs/ lives one level above src/, at the repo root -- put the repo root
-# on sys.path so `configs` is importable regardless of cwd or entry point
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import numpy as np
 
 from configs.robot import (
     PICK_Z_M,
     PLACE_Z_M,
     SAFE_Z_M,
-    TABLE_HEIGHT_MM,
-    TABLE_ORIGIN_XY_M,
-    TABLE_ROTATION_RAD,
-    TABLE_WIDTH_MM,
     TOOL_ORIENTATION_RV,
 )
 from const import CONFIG_PATH
@@ -33,21 +31,15 @@ from send_UR_msg import send_urscript
 DRY_RUN = True
 
 
-def pixel_to_robot_xy(px, py, output_size):
+def pixel_to_robot_xy(px, py, affine):
     '''
     map a rectified-image pixel to robot base-frame XY (m), using the
-    table's known physical size (configs/robot.py) and the calibrated
-    rectangle's pixel size (configs/config.json's output_size).
+    affine transform fitted from robot-touch correspondences
+    (configs/config.json's "pixel_to_robot_affine", produced by
+    calibrate_static.py's collect_robot_correspondences/fit_pixel_to_robot_transform).
     '''
-    sx = (TABLE_WIDTH_MM / 1000) / output_size[0]
-    sy = (TABLE_HEIGHT_MM / 1000) / output_size[1]
-    x_local = px * sx
-    y_local = py * sy
-
-    c, s = math.cos(TABLE_ROTATION_RAD), math.sin(TABLE_ROTATION_RAD)
-    x = c * x_local - s * y_local + TABLE_ORIGIN_XY_M[0]
-    y = s * x_local + c * y_local + TABLE_ORIGIN_XY_M[1]
-    return x, y
+    x, y = affine @ np.array([px, py, 1.0])
+    return float(x), float(y)
 
 
 def _pose(x, y, z):
@@ -55,7 +47,7 @@ def _pose(x, y, z):
     return f"p[{x:.4f}, {y:.4f}, {z:.4f}, {rx:.4f}, {ry:.4f}, {rz:.4f}]"
 
 
-def build_pick_place_script(move, output_size):
+def build_pick_place_script(move, affine):
     '''
     URScript movel commands for one piece: travel above it, descend to grip
     height, lift, travel above its target, descend to release height, lift.
@@ -63,8 +55,8 @@ def build_pick_place_script(move, output_size):
     rotation_delta_rad isn't applied to the place pose yet -- TOOL_ORIENTATION_RV
     is a placeholder until the tool's actual rotation axis convention is known.
     '''
-    pick_x, pick_y = pixel_to_robot_xy(*move["current_centroid"], output_size)
-    place_x, place_y = pixel_to_robot_xy(*move["target_centroid"], output_size)
+    pick_x, pick_y = pixel_to_robot_xy(*move["current_centroid"], affine)
+    place_x, place_y = pixel_to_robot_xy(*move["target_centroid"], affine)
 
     pick_travel = _pose(pick_x, pick_y, SAFE_Z_M)
     pick_grip = _pose(pick_x, pick_y, PICK_Z_M)
@@ -81,9 +73,9 @@ def build_pick_place_script(move, output_size):
     }
 
 
-def execute_move(move, output_size, gripper, dry_run=DRY_RUN):
+def execute_move(move, affine, gripper, dry_run=DRY_RUN):
     '''run one piece's full pick -> place sequence.'''
-    script = build_pick_place_script(move, output_size)
+    script = build_pick_place_script(move, affine)
 
     def run(command):
         if dry_run:
@@ -104,10 +96,17 @@ def execute_move(move, output_size, gripper, dry_run=DRY_RUN):
 def execute_moves(moves, config_path=CONFIG_PATH, dry_run=DRY_RUN, simulated=True):
     '''turn each matched piece move into a pick/place sequence and run (or print) it.'''
     with open(config_path) as f:
-        output_size = tuple(json.load(f)["output_size"])
+        config = json.load(f)
+
+    if "pixel_to_robot_affine" not in config:
+        raise KeyError(
+            f"{config_path} has no 'pixel_to_robot_affine' -- re-run calibrate_static.calibrate() "
+            "(it now fits this matrix as part of calibration)."
+        )
+    affine = np.array(config["pixel_to_robot_affine"], dtype=np.float64)
 
     gripper = Gripper(simulated=simulated or dry_run)
 
     for move in moves:
         print(f"--- piece {move['id']} ---")
-        execute_move(move, output_size, gripper, dry_run=dry_run)
+        execute_move(move, affine, gripper, dry_run=dry_run)

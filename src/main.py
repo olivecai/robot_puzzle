@@ -1,14 +1,25 @@
 
 '''
-1. puzzleA.png is a white background with thin black lines indicated puzzle border. fn "solution_blob_finder" returns each shape in maehtmatical description for bloc analysis
-2. fn "solution_
+July 16 2026 
+Olivia Cai
+
+there are four object classes:
+Puzzle
+Camera
+Gripper
+RobotMessage
+
+Classes for Camera, Gripper, RobotMessage exist as API wrappers, so that you can easily change the type of device later
+
+Class for Puzzle exists so that you can solve different kinds of puzzles
+
 '''
 import robot_control
 from puzzle import Puzzle
-
+from const import *
 
 def main():
-    puzzle = Puzzle(puzzlepath="media/puzzles/Puzzle_12.png")
+    puzzle = Puzzle(puzzlepath=PUZZLE_PATH)
 
     puzzle.calibrate() # after this step, calibration config.json exists else prog shld panic
     print(f"loaded config: {puzzle.config}")
