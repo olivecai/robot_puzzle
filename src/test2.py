@@ -1,4 +1,4 @@
-from puzzle_solver import build_solution_key, clean, detect_blobs, load_solution, match_and_align
+from media.puzzles.wiggly.puzzle_solver import build_solution_key, clean, detect_blobs, load_solution, match_and_align
 from test_puzzle_solve import synthesize_scrambled_capture
 import robot_control, cv2, json
 

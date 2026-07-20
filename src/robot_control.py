@@ -1,20 +1,18 @@
 '''
 turns the moves computed by puzzle_solver.process_frame() (translation/rotation
 per piece, in rectified-image pixel coordinates) into URScript pick/place
-sequences and runs them via the Gripper/send_urscript black boxes.
+sequences and runs them via the Gripper black boxes.
 
 pixel -> robot-frame XY now comes from the affine matrix fitted in
 calibrate_static.py (configs/config.json's "pixel_to_robot_affine"), not
 from hand-measured table geometry. See calibrate_static.py for how that
 matrix is produced.
-
-DRY_RUN prints each generated command instead of sending it -- keep this True
-until the moves have been checked against the real table.
 '''
 
 import json
 import os
 import sys
+from const import *
 
 import numpy as np
 
@@ -24,12 +22,9 @@ from configs.robot import (
     SAFE_Z_M,
     TOOL_ORIENTATION_RV,
 )
-from const import CONFIG_PATH
+from const import CONFIG_PATH, SIMULATION, ROBOT_MESSAGE_TYPE
 from gripper_api import Gripper
-from send_UR_msg import send_urscript
-
-DRY_RUN = True
-
+from robot_message_send import robot_message_send
 
 def pixel_to_robot_xy(px, py, affine):
     '''
@@ -49,39 +44,49 @@ def _pose(x, y, z):
 
 def build_pick_place_script(move, affine):
     '''
-    URScript movel commands for one piece: travel above it, descend to grip
-    height, lift, travel above its target, descend to release height, lift.
-
-    rotation_delta_rad isn't applied to the place pose yet -- TOOL_ORIENTATION_RV
-    is a placeholder until the tool's actual rotation axis convention is known.
+    
     '''
-    pick_x, pick_y = pixel_to_robot_xy(*move["current_centroid"], affine)
-    place_x, place_y = pixel_to_robot_xy(*move["target_centroid"], affine)
+    if ROBOT_MESSAGE_TYPE == WIGGLY:
+        '''
+        URScript movel commands for one piece: travel above it, descend to grip
+        height, lift, travel above its target, descend to release height, lift.
 
-    pick_travel = _pose(pick_x, pick_y, SAFE_Z_M)
-    pick_grip = _pose(pick_x, pick_y, PICK_Z_M)
-    place_travel = _pose(place_x, place_y, SAFE_Z_M)
-    place_release = _pose(place_x, place_y, PLACE_Z_M)
+        rotation_delta_rad isn't applied to the place pose yet -- TOOL_ORIENTATION_RV
+        is a placeholder until the tool's actual rotation axis convention is known.
+        '''
+        pick_x, pick_y = pixel_to_robot_xy(*move["current_centroid"], affine)
+        place_x, place_y = pixel_to_robot_xy(*move["target_centroid"], affine)
 
-    return {
-        "approach_pick": f"movel({pick_travel}, a=1.0, v=0.5)",
-        "descend_pick": f"movel({pick_grip}, a=1.0, v=0.2)",
-        "lift_after_pick": f"movel({pick_travel}, a=1.0, v=0.5)",
-        "approach_place": f"movel({place_travel}, a=1.0, v=0.5)",
-        "descend_place": f"movel({place_release}, a=1.0, v=0.2)",
-        "lift_after_place": f"movel({place_travel}, a=1.0, v=0.5)",
-    }
+        pick_travel = _pose(pick_x, pick_y, SAFE_Z_M)
+        pick_grip = _pose(pick_x, pick_y, PICK_Z_M)
+        place_travel = _pose(place_x, place_y, SAFE_Z_M)
+        place_release = _pose(place_x, place_y, PLACE_Z_M)
+
+        return {
+            "approach_pick": f"movel({pick_travel}, a=1.0, v=0.5)",
+            "descend_pick": f"movel({pick_grip}, a=1.0, v=0.2)",
+            "lift_after_pick": f"movel({pick_travel}, a=1.0, v=0.5)",
+            "approach_place": f"movel({place_travel}, a=1.0, v=0.5)",
+            "descend_place": f"movel({place_release}, a=1.0, v=0.2)",
+            "lift_after_place": f"movel({place_travel}, a=1.0, v=0.5)",
+        }
+    elif ROBOT_MESSAGE_TYPE == "jigsaw":
+        # this is here just for example, so you see we can add different types of puzzle"
+        pass
+    else: 
+        print("Set ROBOT_MESSAGE_TYPE to be a valid puzzle type in const.py")
+        return None
 
 
-def execute_move(move, affine, gripper, dry_run=DRY_RUN):
+def execute_move(move, affine, gripper, simulation=SIMULATION):
     '''run one piece's full pick -> place sequence.'''
     script = build_pick_place_script(move, affine)
 
     def run(command):
-        if dry_run:
-            print(f"  [DRY RUN] {command}")
+        if simulation:
+            print(f"LOGGING robot_control.py : [SIMULATION] {command}")
         else:
-            send_urscript(command)
+            robot_message_send(command=command)
 
     run(script["approach_pick"])
     run(script["descend_pick"])
@@ -93,7 +98,7 @@ def execute_move(move, affine, gripper, dry_run=DRY_RUN):
     run(script["lift_after_place"])
 
 
-def execute_moves(moves, config_path=CONFIG_PATH, dry_run=DRY_RUN, simulated=True):
+def execute_moves(moves, config_path=CONFIG_PATH, simulated=SIMULATION):
     '''turn each matched piece move into a pick/place sequence and run (or print) it.'''
     with open(config_path) as f:
         config = json.load(f)
@@ -105,8 +110,8 @@ def execute_moves(moves, config_path=CONFIG_PATH, dry_run=DRY_RUN, simulated=Tru
         )
     affine = np.array(config["pixel_to_robot_affine"], dtype=np.float64)
 
-    gripper = Gripper(simulated=simulated or dry_run)
+    gripper = Gripper(simulated=simulated)
 
     for move in moves:
         print(f"--- piece {move['id']} ---")
-        execute_move(move, affine, gripper, dry_run=dry_run)
+        execute_move(move, affine, gripper)

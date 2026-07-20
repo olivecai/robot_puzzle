@@ -5,15 +5,48 @@ import cv2
 
 from calibrate_static import calibrate
 from camera_api import Camera
-import puzzle_solver
+import media.puzzles.wiggly.puzzle_solver as puzzle_solver
 from const import *
 
 '''
-should be puzzle type agnostic, so if need change puzzle type, should only need to edit puzzle_solver.py
+treat class Puzzle like a Trait.
+
+If you have a type of Puzzle like WigglyPuzzle or JigsawPuzzle etc, you can implement its solving logic etc and then expose the traits dictated by Puzzle
+
+Then we have a sort of rule: IF you want to integrate your custom puzzle, THEN it must satisfy the public traits of Puzzle.
 '''
 
-
 class Puzzle:
+    def __init__(self, puzzletype = PUZZLE_TYPE, puzzlepath="media/puzzles/puzzle.png", recalibrate=RECALIBRATE, simulated=SIMULATION):
+        
+        # set self.puzzle, but actually we dont strictly need to access this field
+        if PUZZLE_TYPE == WIGGLY:
+            self.puzzle=WigglyPuzzle(puzzlepath=puzzlepath, recalibrate=recalibrate, simulated=SIMULATION)
+    
+    def calibrate(self):
+        '''
+        populate self.config with the path to the calibration file
+        '''
+        if self.recalibrate: # if recalibrate = 1
+            self.config = calibrate() # runs the click-4-corners UI, saves config.json
+        else: # if recalibrate=0:
+            self.config = CONFIG_PATH
+
+        if not os.path.exists(self.config):
+            raise FileNotFoundError(
+                f"No calibration found at {self.config} -- run with recalibrate=1 first"
+            )
+        
+    def build_answerkey(self):
+        self.puzzle.build_answerkey()
+    
+    def solve_current(self):
+        self.puzzle.solve_current()
+
+    
+
+
+class WigglyPuzzle:
     '''
     make class for GUI convenience
     '''
@@ -35,19 +68,6 @@ class Puzzle:
         self.capture_path = CAPTURE_PATH
         self.camera.capture(self.capture_path)
 
-    def calibrate(self):
-        '''
-        populate self.config with the path to the calibration file
-        '''
-        if self.recalibrate: # if recalibrate = 1
-            self.config = calibrate() # runs the click-4-corners UI, saves config.json
-        else: # if recalibrate=0:
-            self.config = CONFIG_PATH
-
-        if not os.path.exists(self.config):
-            raise FileNotFoundError(
-                f"No calibration found at {self.config} -- run with recalibrate=1 first"
-            )
 
     def build_answerkey(self):
         '''
@@ -70,3 +90,6 @@ class Puzzle:
 
         self.moves = puzzle_solver.process_frame(current_img)
         return self.moves
+    
+class JigsawPuzzle:
+    def calibrate

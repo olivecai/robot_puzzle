@@ -23,7 +23,7 @@ import random
 import cv2
 import numpy as np
 
-from puzzle_solver import (
+from media.puzzles.wiggly.puzzle_solver import (
     build_solution_key,
     clean,
     detect_blobs,

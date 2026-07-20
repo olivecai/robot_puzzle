@@ -19,6 +19,24 @@ from puzzle import Puzzle
 from const import *
 
 def main():
+    '''
+    Hello programmer! This main function does the following:
+    1. captures current image
+    1. calibrates the image to robot space transform matrix if RECALIBRATION=True
+    2. identifies the solution to PUZZLE_PATH and saves this solution as f"solution_key_{PUZZLE_PATH}.json" 
+    3. given the current image of the pieces, identify the pieces and match them to the solution key
+    4. execute the robot moves to assemble the puzzle
+
+    Things I am Worried About:
+    1. noise in the image
+    2. calibration error (so, add a bit of margin for each puzzle piece)
+    3. singularities with rotating the robot gripper
+    
+    Architecture:
+    - Use classes for all objects that can have multiple kinds of api or type. For instance, can have jigsaw or wavy piece puzzles, so class Puzzle can have an id config where it executes certain functions for a certain type of puzzle
+    - the following groups should be black boxes to each other: {Puzzle, Gripper, Robot}
+    
+    '''
     puzzle = Puzzle(puzzlepath=PUZZLE_PATH)
 
     puzzle.calibrate() # after this step, calibration config.json exists else prog shld panic
