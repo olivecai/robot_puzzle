@@ -117,7 +117,7 @@ def execute_move(move, affine, gripper, simulation=SIMULATION):
         if simulation:
             print("LOGGING robot_control run")
             with open("TESTME.txt", mode="a") as f:
-                f.write(f"LOGGING robot_control.py : [SIMULATION] {command}")
+                f.write(f"LOGGING robot_control.py : [SIMULATION] {command}\n")
             
         else:
             robot_message_send(command=command)
@@ -132,10 +132,17 @@ def execute_move(move, affine, gripper, simulation=SIMULATION):
         gripper.off()
         run(script["lift_after_place"])
     else:
-        run(script["pick_x"])
-        run(script["pick_y"])
-        run(script["place_x"])       
-        run(script["place_y"])
+        x_coord = script["pick_x"]
+        y_coord=script["pick_y"]
+        x_coord= str(x_coord)
+        y_coord = str(y_coord)
+        run(x_coord + "," + y_coord)
+        x_coord = script["place_x"]
+        y_coord=script["place_y"]
+        x_coord= str(x_coord)
+        y_coord = str(y_coord)
+        run(x_coord + "," + y_coord)
+
 
 
 def execute_moves(moves, config_path=CONFIG_PATH, simulated=SIMULATION):

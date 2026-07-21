@@ -15,7 +15,7 @@ DEPTHAI="depthai"
 ### edit the vars below 
 
 SIMULATION = 1
-RECALIBRATE= 1
+RECALIBRATE= 0
 
 
 PUZZLE_TYPE = WIGGLY
