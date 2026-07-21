@@ -56,4 +56,9 @@ python3 Camera/camera_all.py
 ```
 https://docs.luxonis.com/software-v3/depthai/api/python/
 
-2. 
+
+
+## impl
+
+camera acquisition works, run setup_udev_rules.sh for devices perms and then run camera_api.py
+

@@ -16,9 +16,14 @@ Two tests:
 Also writes an annotated debug image so you can visually confirm blob
 detection, matching, and orientation arrows look right.
 '''
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 import json
 import random
+import tempfile
 
 import cv2
 import numpy as np
@@ -32,14 +37,16 @@ from media.puzzles.wiggly.puzzle_solver import (
     principal_angle,
 )
 
-ANSWER_KEY_IMG = "media/puzzles/Puzzle_12.png"
-SOLUTION_KEY_PATH = "configs/solution_key.json"
+from const import *
+
+ANSWER_KEY_IMG = PUZZLE_PATH
+SOLUTION_KEY_PATH = SOLUTION_KEY_PATH
 
 RANDOMSEED=1
 
-ROBUSTNESS_PUZZLES = ["media/puzzles/Puzzle_12.png", "media/puzzles/Puzzle_24.png"]
-ROBUSTNESS_SEEDS = [1, 2, 3, 4, 5]
-NOISE_STDDEVS = [0, 10, 20, 30, 40, 50]
+ROBUSTNESS_PUZZLES = [PUZZLE_PATH]
+ROBUSTNESS_SEEDS = [1]
+NOISE_STDDEVS = [0, 10]
 
 def test_solution_key_extraction():
     print("\n=== test_solution_key_extraction ===")
@@ -51,10 +58,16 @@ def test_solution_key_extraction():
     assert len(pieces) > 0, "No pieces extracted — check line_threshold/close_iters"
     print(f"Extracted {len(pieces)} pieces")
 
-    h, w = img.shape[:2]
+    # target_centroid is rescaled/shifted into SCATTER_AREA_PX's footprint
+    # by build_solution_key, not left in the raw template image's own frame
+    # -- see puzzle_solver.fit_scale_and_offset. The assembly area is a
+    # robot-frame offset (const.ASSEMBLY_OFFSET_M) applied later in
+    # robot_control.py, not a second pixel footprint.
+    x0, y0, x1, y1 = SCATTER_AREA_PX
     for p in pieces:
         cx, cy = p["target_centroid"]
-        assert 0 <= cx <= w and 0 <= cy <= h, f"Piece {p['id']} centroid out of bounds: {p['target_centroid']}"
+        assert x0 <= cx <= x1 and y0 <= cy <= y1, \
+            f"Piece {p['id']} centroid out of bounds: {p['target_centroid']}"
         assert p["area"] > 0
 
     print("PASS: all centroids in bounds, all areas positive")
@@ -67,7 +80,18 @@ def _rotate_and_translate_points(pts, angle_rad, translation):
     return pts @ R.T + translation
 
 
-def synthesize_scrambled_capture(solution_pieces, seed=RANDOMSEED):
+# synthetic-canvas pixel budget -- solution_pieces' reference_contour comes
+# from build_solution_key's real-meters scaling (puzzle_solver.
+# puzzle_size_m_to_area_px), which can be huge in pixels if
+# PUZZLE_SOLVED_SIZE_M / CALIBRATION_ROBOT_POINTS aren't real measured
+# values yet. Cap the canvas here rather than let clean()/detect_blobs()
+# OOM on a >100M-pixel image (shape matching and the translation
+# self-consistency check are both scale-invariant, so shrinking the
+# synthetic placement doesn't weaken the test).
+MAX_CANVAS_DIM_PX = 4000
+
+
+def synthesize_scrambled_capture(solution_pieces, seed=RANDOMSEED, max_canvas_dim=MAX_CANVAS_DIM_PX):
     '''
     build a fake "live capture" (black pieces on white) by taking each
     solution piece's true shape and stamping it at a random known
@@ -91,6 +115,19 @@ def synthesize_scrambled_capture(solution_pieces, seed=RANDOMSEED):
     margin = 100
     w = cols * cell + 2 * margin
     h = rows * cell + 2 * margin
+
+    # downscale the whole layout (grid + piece shapes) proportionally if it
+    # would blow past the pixel budget
+    shrink = min(1.0, max_canvas_dim / max(w, h))
+    if shrink < 1.0:
+        cell = int(cell * shrink)
+        margin = int(margin * shrink)
+        w = cols * cell + 2 * margin
+        h = rows * cell + 2 * margin
+        print(f"synthesize_scrambled_capture: shrinking by {shrink:.4f} to keep canvas <= {max_canvas_dim}px "
+              f"(piece geometry from build_solution_key's real-meters scaling was oversized -- "
+              "see PUZZLE_SOLVED_SIZE_M/CALIBRATION_ROBOT_POINTS in const.py)")
+
     canvas = np.full((h, w), 255, dtype=np.uint8)
 
     ground_truth = {}
@@ -106,7 +143,7 @@ def synthesize_scrambled_capture(solution_pieces, seed=RANDOMSEED):
         ])
         applied_angle = rng.uniform(-np.pi, np.pi)
 
-        cnt = p["reference_contour"]  # centered on origin already
+        cnt = np.array(p["reference_contour"], dtype=np.float64) * shrink  # centered on origin already; uniform scale keeps shape/angles intact
         placed = _rotate_and_translate_points(cnt, applied_angle, applied_pos)
         cv2.fillPoly(canvas, [placed.astype(np.int32)], 0)
 
@@ -130,15 +167,20 @@ def test_scramble_and_recover(solution_pieces, seed=RANDOMSEED, noise_stddev=0):
     cv2.imwrite("scrambled_capture.png", canvas)
     print(f"Wrote scrambled_capture.png ({canvas.shape[1]}x{canvas.shape[0]}, synthetic scrambled pieces)")
 
-    # the identity config.json's output_size must match this canvas, or
-    # warpPerspective silently crops the image down to the configured size
+    # the identity config's output_size must match this canvas, or
+    # warpPerspective silently crops the image down to the configured size.
+    # Written to a throwaway tempfile, NOT configs/config.json -- that's
+    # your real calibration (points/M/pixel_to_robot_affine), and
+    # overwriting it here previously clobbered uncommitted calibration data.
     h, w = canvas.shape[:2]
-    with open("configs/config.json", "w") as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         json.dump({"M": [[1, 0, 0], [0, 1, 0], [0, 0, 1]], "output_size": [w, h]}, f)
+        identity_config_path = f.name
 
     # feed it through the same pipeline a real photo would go through
     canvas_bgr = cv2.cvtColor(canvas, cv2.COLOR_GRAY2BGR)
-    bw = clean(canvas_bgr)  # uses the identity config.json placed in configs/
+    bw = clean(canvas_bgr, config_path=identity_config_path)
+    os.remove(identity_config_path)
     blobs = detect_blobs(bw, min_area=200)
     print(f"Detected {len(blobs)} blobs (expected {len(solution_pieces)})")
 

@@ -17,7 +17,7 @@ Then we have a sort of rule: IF you want to integrate your custom puzzle, THEN i
 '''
 
 class Puzzle:
-    def __init__(self, puzzletype = PUZZLE_TYPE, puzzlepath="media/puzzles/puzzle.png", recalibrate=RECALIBRATE, simulated=SIMULATION):
+    def __init__(self, puzzletype = PUZZLE_TYPE, puzzlepath=PUZZLE_PATH, recalibrate=RECALIBRATE, simulated=SIMULATION):
         
         # set self.puzzle, but actually we dont strictly need to access this field
         if PUZZLE_TYPE == WIGGLY:
@@ -27,7 +27,7 @@ class Puzzle:
         '''
         populate self.config with the path to the calibration file
         '''
-        if self.recalibrate: # if recalibrate = 1
+        if self.puzzle.recalibrate: # if recalibrate = 1
             self.config = calibrate() # runs the click-4-corners UI, saves config.json
         else: # if recalibrate=0:
             self.config = CONFIG_PATH
@@ -41,16 +41,17 @@ class Puzzle:
         self.puzzle.build_answerkey()
     
     def solve_current(self):
-        self.puzzle.solve_current()
+        return self.puzzle.solve_current()
 
-    
+    def get_solution_pieces(self):
+        return(self.puzzle.solution_pieces)    
 
 
 class WigglyPuzzle:
     '''
     make class for GUI convenience
     '''
-    def __init__(self, puzzlepath="media/puzzles/puzzle.png", recalibrate=RECALIBRATE, simulated=SIMULATION):
+    def __init__(self, puzzlepath=PUZZLE_PATH, recalibrate=RECALIBRATE, simulated=SIMULATION):
 
         # filepath to selected puzzle
         self.puzzlepath : str = puzzlepath
@@ -88,8 +89,9 @@ class WigglyPuzzle:
             print(f"No live capture found at {self.capture_path} (SIMULATION={SIMULATION}); skipping solve")
             return None
 
+        print("LOGGING puzzle::solve_current; processing frame now...")
         self.moves = puzzle_solver.process_frame(current_img)
         return self.moves
     
-class JigsawPuzzle:
-    def calibrate
+# class JigsawPuzzle:
+#     def calibrate

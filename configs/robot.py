@@ -3,7 +3,7 @@ PORT = 30002
 
 # --- physical calibration: rectified table-image pixels -> robot base frame ---
 # TODO: replace with real measurements from the physical setup
-TABLE_ORIGIN_XY_M = (0.0, 0.0)     # robot base-frame XY (m) at rectified image pixel (0, 0)
+TABLE_ORIGIN_XY_M = (1000.0, 1000.0)     # robot base-frame XY (m) at rectified image pixel (0, 0) (note that 0,0 is top left corner, +x is rightward and +y is downward)
 TABLE_WIDTH_MM = 500.0             # physical width of the calibrated table rectangle
 TABLE_HEIGHT_MM = 350.0            # physical height of the calibrated table rectangle
 TABLE_ROTATION_RAD = 0.0           # rotation from image axes to robot base axes

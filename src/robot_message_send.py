@@ -3,8 +3,6 @@ import socket
 import sys
 import time
 
-# configs/ lives one level above src/, at the repo root -- put the repo root
-# on sys.path so `configs` is importable regardless of cwd or entry point
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from configs.robot import *

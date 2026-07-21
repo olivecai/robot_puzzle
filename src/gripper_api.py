@@ -7,19 +7,26 @@ currently targets a Schmalz Cobotpump suction cup via a single digital output.
 
 import os
 import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from configs.robot import VACUUM_DIGITAL_OUT
-from robot_message_send import send_urscript
+from robot_message_send import robot_message_send
 from const import *
 
 '''
-TODO read this document: https://media.schmalz.com/MAM_Library/Dokumente/Bedienungsanleitung_kurz/30/3030/303001/30300102291/d017758bd2c7_BAK_30.30.01.02291_en-EN.pdf 
+TODO for olivia read this document: https://media.schmalz.com/MAM_Library/Dokumente/Bedienungsanleitung_kurz/30/3030/303001/30300102291/d017758bd2c7_BAK_30.30.01.02291_en-EN.pdf 
 '''
 
 class Gripper:
     def __init__(self, grippertype=GRIPPER_TYPE, simulated=SIMULATION):
         if grippertype == DIGITALOUT_URSCRIPT:
             self.gripper = DigitalOutURScriptGripper(simulated=SIMULATION)
+    
+    def on(self):
+        self.gripper.on()
+
+    def off(self):
+        self.gripper.off()
 
 class DigitalOutURScriptGripper:
     def __init__(self, simulated=SIMULATION):
@@ -37,5 +44,17 @@ class DigitalOutURScriptGripper:
         if self.simulated:
             print(f"logging: gripper_api SIMULATED RUN -- {command}")
         else:
-            send_urscript(command)
+            robot_message_send(command)
         self.state = state
+
+class SchmalzGripper:
+    def __init__(self, simulated=SIMULATION):
+        self.simulated = simulated
+        self.state = None
+
+    def on(self):
+        pass
+
+    def off(self):
+        pass
+

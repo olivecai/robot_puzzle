@@ -15,18 +15,8 @@ pick/place coordinates.
 Both stages' results are saved together into config.json:
     points, M, output_size, pixel_to_robot_affine
 
-NOTE on display scaling: we deliberately never call cv2.getWindowImageRect()
-to figure out click-to-original-pixel scaling. That API queries the *live*
-window manager state, which can lag behind resizeWindow()/namedWindow() on
-some backends (esp. Qt) -- the first click can land before the window has
-actually finished laying out, so it silently reads back (0, 0) and every
-click gets dropped (this is what caused "Select 4 points first." to loop
-forever, alongside the QFont::setPointSizeF warning, which is the same
-stale/zero-geometry race surfacing inside Qt's own font code). Instead we
-resize the image ourselves to fit SCREEN_WIDTH/SCREEN_HEIGHT (const.py, set
-to your actual screen resolution) with cv2.resize() before display, and
-compute the scale factor from numbers we already know -- nothing to query,
-nothing to race.
+    
+NOTE this file is agnostic to puzzle/cam/robot type.
 '''
 
 import json
@@ -295,6 +285,7 @@ def calibrate():
                 json.dump(config_data, f, indent=4)
             saved_path = CONFIG_PATH
             print(f"Calibration data saved to {CONFIG_PATH}")
+            break  
 
     cv2.destroyAllWindows()
     return saved_path

@@ -12,9 +12,13 @@ matrix is produced.
 import json
 import os
 import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from const import *
 
 import numpy as np
+
+import matplotlib.pyplot as plt
 
 from configs.robot import (
     PICK_Z_M,
@@ -37,6 +41,21 @@ def pixel_to_robot_xy(px, py, affine):
     return float(x), float(y)
 
 
+def robot_delta_to_pixel_delta(dx_m, dy_m, affine):
+    '''
+    inverse of pixel_to_robot_xy, for a translation rather than a point:
+    given a robot base-frame displacement (m), return the equivalent
+    displacement in rectified pixels. Only the affine's 2x2 linear
+    submatrix matters for a delta (its constant offset column only applies
+    to absolute points) -- used by main.plot_moves to preview
+    const.ASSEMBLY_OFFSET_M in the same pixel frame as the rest of the
+    debug plot.
+    '''
+    linear = affine[:, :2]
+    dpx, dpy = np.linalg.inv(linear) @ np.array([dx_m, dy_m])
+    return float(dpx), float(dpy)
+
+
 def _pose(x, y, z):
     rx, ry, rz = TOOL_ORIENTATION_RV
     return f"p[{x:.4f}, {y:.4f}, {z:.4f}, {rx:.4f}, {ry:.4f}, {rz:.4f}]"
@@ -46,35 +65,47 @@ def build_pick_place_script(move, affine):
     '''
     
     '''
-    if ROBOT_MESSAGE_TYPE == WIGGLY:
-        '''
-        URScript movel commands for one piece: travel above it, descend to grip
-        height, lift, travel above its target, descend to release height, lift.
+    if ROBOT_MESSAGE_TYPE == URSCRIPT:
+        if not SIMULATION:
+            '''
+            URScript movel commands for one piece: travel above it, descend to grip
+            height, lift, travel above its target, descend to release height, lift.
 
-        rotation_delta_rad isn't applied to the place pose yet -- TOOL_ORIENTATION_RV
-        is a placeholder until the tool's actual rotation axis convention is known.
-        '''
-        pick_x, pick_y = pixel_to_robot_xy(*move["current_centroid"], affine)
-        place_x, place_y = pixel_to_robot_xy(*move["target_centroid"], affine)
+            rotation_delta_rad isn't applied to the place pose yet -- TOOL_ORIENTATION_RV
+            is a placeholder until the tool's actual rotation axis convention is known.
+            '''
+            pick_x, pick_y = pixel_to_robot_xy(*move["current_centroid"], affine)
+            place_x, place_y = pixel_to_robot_xy(*move["target_centroid"], affine)
+            place_x += ASSEMBLY_OFFSET_M[0]
+            place_y += ASSEMBLY_OFFSET_M[1]
 
-        pick_travel = _pose(pick_x, pick_y, SAFE_Z_M)
-        pick_grip = _pose(pick_x, pick_y, PICK_Z_M)
-        place_travel = _pose(place_x, place_y, SAFE_Z_M)
-        place_release = _pose(place_x, place_y, PLACE_Z_M)
+            pick_travel = _pose(pick_x, pick_y, SAFE_Z_M)
+            pick_grip = _pose(pick_x, pick_y, PICK_Z_M)
+            place_travel = _pose(place_x, place_y, SAFE_Z_M)
+            place_release = _pose(place_x, place_y, PLACE_Z_M)
 
-        return {
-            "approach_pick": f"movel({pick_travel}, a=1.0, v=0.5)",
-            "descend_pick": f"movel({pick_grip}, a=1.0, v=0.2)",
-            "lift_after_pick": f"movel({pick_travel}, a=1.0, v=0.5)",
-            "approach_place": f"movel({place_travel}, a=1.0, v=0.5)",
-            "descend_place": f"movel({place_release}, a=1.0, v=0.2)",
-            "lift_after_place": f"movel({place_travel}, a=1.0, v=0.5)",
-        }
-    elif ROBOT_MESSAGE_TYPE == "jigsaw":
-        # this is here just for example, so you see we can add different types of puzzle"
-        pass
+            return {
+                "approach_pick": f"movel({pick_travel}, a=1.0, v=0.5)",
+                "descend_pick": f"movel({pick_grip}, a=1.0, v=0.2)",
+                "lift_after_pick": f"movel({pick_travel}, a=1.0, v=0.5)",
+                "approach_place": f"movel({place_travel}, a=1.0, v=0.5)",
+                "descend_place": f"movel({place_release}, a=1.0, v=0.2)",
+                "lift_after_place": f"movel({place_travel}, a=1.0, v=0.5)",
+            }
+        else:
+            pick_x, pick_y = pixel_to_robot_xy(*move["current_centroid"], affine)
+            place_x, place_y = pixel_to_robot_xy(*move["target_centroid"], affine)
+            place_x += ASSEMBLY_OFFSET_M[0]
+            place_y += ASSEMBLY_OFFSET_M[1]
+
+            return {"pick_x": pick_x,
+                    "pick_y": pick_y,
+                    "place_x": place_x,
+                    "place_y": place_y,}
+        
+
     else: 
-        print("Set ROBOT_MESSAGE_TYPE to be a valid puzzle type in const.py")
+        print("Set ROBOT_MESSAGE_TYPE to be a valid robot message type in const.py")
         return None
 
 
@@ -84,18 +115,27 @@ def execute_move(move, affine, gripper, simulation=SIMULATION):
 
     def run(command):
         if simulation:
-            print(f"LOGGING robot_control.py : [SIMULATION] {command}")
+            print("LOGGING robot_control run")
+            with open("TESTME.txt", mode="a") as f:
+                f.write(f"LOGGING robot_control.py : [SIMULATION] {command}")
+            
         else:
             robot_message_send(command=command)
 
-    run(script["approach_pick"])
-    run(script["descend_pick"])
-    gripper.on()
-    run(script["lift_after_pick"])
-    run(script["approach_place"])
-    run(script["descend_place"])
-    gripper.off()
-    run(script["lift_after_place"])
+    if not simulation:
+        run(script["approach_pick"])
+        run(script["descend_pick"])
+        gripper.on()
+        run(script["lift_after_pick"])
+        run(script["approach_place"])
+        run(script["descend_place"])
+        gripper.off()
+        run(script["lift_after_place"])
+    else:
+        run(script["pick_x"])
+        run(script["pick_y"])
+        run(script["place_x"])       
+        run(script["place_y"])
 
 
 def execute_moves(moves, config_path=CONFIG_PATH, simulated=SIMULATION):
@@ -113,5 +153,5 @@ def execute_moves(moves, config_path=CONFIG_PATH, simulated=SIMULATION):
     gripper = Gripper(simulated=simulated)
 
     for move in moves:
-        print(f"--- piece {move['id']} ---")
+        # print(f"--- piece {move['id']} ---")
         execute_move(move, affine, gripper)
