@@ -123,10 +123,23 @@ def plot_moves(moves, config_path=CONFIG_PATH, scatter_area_px=SCATTER_AREA_PX,
         theta = np.linspace(0, rotation, 50)
         arc_x = cx + radius * np.cos(theta)
         arc_y = cy + radius * np.sin(theta)
-        ax.plot(arc_x, arc_y, color="orange", lw=2)
+        ax.plot(arc_x, arc_y, color="red", lw=2)
         ax.annotate(
             "", xy=(arc_x[-1], arc_y[-1]), xytext=(arc_x[-2], arc_y[-2]),
-            arrowprops=dict(arrowstyle="->", color="orange", lw=2),
+            arrowprops=dict(arrowstyle="->", color="red", lw=2),
+        )
+
+        # label the rotation amount in degrees at the arc's midpoint, offset
+        # slightly outward from the centroid so it doesn't overlap the arc itself
+        mid_theta = rotation / 2
+        label_radius = radius * 1.4
+        label_x = cx + label_radius * np.cos(mid_theta)
+        label_y = cy + label_radius * np.sin(mid_theta)
+        ax.annotate(
+            f"{np.degrees(rotation):.1f}°",
+            (label_x, label_y),
+            color="red", fontsize=9, fontweight="bold",
+            ha="center", va="center", zorder=4,
         )
 
     ax.set_aspect("equal")
@@ -158,10 +171,12 @@ def main():
     - the following groups should be black boxes to each other: {Puzzle, Gripper, Robot}
     
     '''
-
-    rtde_r = RTDEReceiveInterface(ROBOT_IP)
-    robot_control.go_to_pose_camera_capture()
-    robot_control.wait_until_robot_stopped(rtde_r)
+    RTDE_R_SIM = 1
+    rtde_r  = None
+    if not RTDE_R_SIM:
+        rtde_r = RTDEReceiveInterface(ROBOT_IP)
+        robot_control.go_to_pose_camera_capture()
+        robot_control.wait_until_robot_stopped(rtde_r)
 
     # first create a puzzle object. optional args but you can just set the values in const.py and then run this prog (puzzletype: str = PUZZLE_TYPE, puzzlepath: str = "media/puzzles/puzzle.png", recalibrate: int = RECALIBRATE, simulated: int = SIMULATION) -> Puzzle
     puzzle = Puzzle()

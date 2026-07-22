@@ -133,6 +133,7 @@ def build_pick_place_script(move, affine, rtde_r):
     # rough pre-flight sanity check only -- NOT the value actually sent.
     # Uses whatever joints we're at right now, just to catch a wildly
     # unreachable rotation early; the real baseline is read live below.
+    
     current_q = rtde_r.getActualQ()
     preflight_q = find_safe_wrist3(current_q, rotation_delta_rad)
     if preflight_q is None:

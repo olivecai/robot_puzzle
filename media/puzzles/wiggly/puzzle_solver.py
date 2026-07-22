@@ -432,6 +432,7 @@ def match_and_align(blobs, solution_pieces, n_points=150, coarse_step_deg=5, fin
     row_idx, col_idx = linear_sum_assignment(cost)
 
     matched = []
+    view_solution = []
     for i, j in zip(row_idx, col_idx):
         blob = blobs[i]
         best_piece = solution_pieces[j]
@@ -443,6 +444,15 @@ def match_and_align(blobs, solution_pieces, n_points=150, coarse_step_deg=5, fin
             round(best_piece["target_centroid"][1] - blob["centroid"][1], 2),
         ]
 
+        view_solution.append({
+             "id": best_piece["id"],
+            "current_centroid": blob["centroid"],
+            "target_centroid": best_piece["target_centroid"],
+            "translation": translation,
+            "rotation_delta_rad": round(float(rotation_delta), 4),
+            "area": blob["area"],
+            "shape_match_score": round(float(best_shape_score), 4),
+        })
         matched.append({
             "id": best_piece["id"],
             "current_centroid": blob["centroid"],
@@ -460,6 +470,10 @@ def match_and_align(blobs, solution_pieces, n_points=150, coarse_step_deg=5, fin
         missing = [sp["id"] for sp in solution_pieces if sp["id"] not in matched_ids]
         print(f"Warning: {n_blobs} detected blob(s) vs {n_pieces} solution piece(s) -- "
               f"unmatched solution piece(s): {missing}")
+    
+
+    with open("PREVIEW_SOLUTION.json", "w") as f:
+        json.dump({"pieces": view_solution}, f, indent=4)
 
     return matched
 
