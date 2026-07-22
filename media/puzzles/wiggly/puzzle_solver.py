@@ -2,6 +2,8 @@ import json
 
 import cv2
 import numpy as np
+from scipy.optimize import linear_sum_assignment
+from scipy.spatial import cKDTree
 
 import robot_control
 from const import *
@@ -17,6 +19,12 @@ def principal_angle(cnt):
     PCA alone can't distinguish. cnt must already be centered on its own
     centroid (mean-subtracted). Requires an asymmetric (non-mirror-symmetric)
     shape to give a stable result.
+
+    NOTE: kept for reference/comparison, but match_and_align no longer uses
+    this for rotation_delta_rad -- see rotation_search_cost, which finds the
+    best-fit rotation directly from contour overlay and is far more robust
+    for pieces whose global shape statistics (Hu moments / PCA skew) are
+    ambiguous or near-symmetric.
     '''
     pts = cnt.astype(np.float64)
     cov = np.cov(pts.T)
@@ -56,6 +64,14 @@ def warp(image, config_path=CONFIG_PATH):
 # ---------------------------------------------------------------------------
 
 def clean(image, config_path=CONFIG_PATH, upsample_factor=2, sharpen_amount=1.5):
+    '''
+    crop and binarize the table image for piece detection. Thresholding is
+    done at an upsampled resolution (then downscaled back) so corners come
+    out sharper than thresholding at the original camera resolution would
+    give -- low-res corners have nowhere to "round off" to at 2x-4x scale.
+    Returns a single bw image at the ORIGINAL resolution; callers don't
+    need to know upsampling happened internally.
+    '''
     cropped = warp(image, config_path)
     gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
     orig_h, orig_w = gray.shape
@@ -69,12 +85,10 @@ def clean(image, config_path=CONFIG_PATH, upsample_factor=2, sharpen_amount=1.5)
 
     _, bw_up = cv2.threshold(sharpened, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-    # downscale back to original resolution -- sharp edges from the
-    # upsampled threshold are preserved much better than if we'd
-    # thresholded at the original low resolution directly
     bw = cv2.resize(bw_up, (orig_w, orig_h), interpolation=cv2.INTER_NEAREST)
     _, bw = cv2.threshold(bw, 127, 255, cv2.THRESH_BINARY)  # re-binarize after resize interpolation
     return bw
+
 
 def detect_blobs(bw, min_area=200):
     '''
@@ -198,7 +212,8 @@ def build_solution_key(image, config_path=CONFIG_PATH, output_path=SOLUTION_KEY_
     process an answer-key photo into solution_key.json: one entry per
     piece, with its target centroid (where it belongs), reference contour
     (its shape in solved orientation), and reference angle (its "solved"
-    rotation, used as the zero-point for rotation deltas later).
+    rotation -- kept for reference/debugging, no longer used as the
+    zero-point for rotation deltas; see match_and_align/rotation_search_cost).
 
     apply_calibration: set False if the answer key was captured/generated
     independently of the robot's calibrated camera frame (e.g. a rendered
@@ -275,36 +290,153 @@ def load_solution(solution_path=SOLUTION_KEY_PATH):
 
 
 # ---------------------------------------------------------------------------
-# Matching a live capture against the solution key
+# Contour-overlay rotation search: replaces Hu-moment (cv2.matchShapes)
+# matching. Hu moments compress a whole contour into 7 global statistics,
+# which are often too coarse to tell apart jigsaw/wiggly pieces that share
+# a similar overall blob shape but differ in tab/blank position -- this
+# directly overlays actual contour points at many candidate rotations and
+# scores how tightly they align, which is far more discriminative. The
+# best-fit rotation found here is also used directly as rotation_delta_rad,
+# replacing principal_angle (which assumes an asymmetric shape and can be
+# thrown off by rounded corners or near-symmetric pieces).
 # ---------------------------------------------------------------------------
 
-def match_and_align(blobs, solution_pieces):
+def resample_contour(cnt, n_points=150):
+    '''resample a closed contour to n_points evenly spaced by arc length.'''
+    pts = np.vstack([cnt, cnt[0]])  # close the loop
+    diffs = np.diff(pts, axis=0)
+    seg_lengths = np.linalg.norm(diffs, axis=1)
+    cum_length = np.concatenate([[0.0], np.cumsum(seg_lengths)])
+    total_length = cum_length[-1]
+
+    if total_length == 0:
+        return np.tile(cnt[0], (n_points, 1))
+
+    sample_distances = np.linspace(0, total_length, n_points, endpoint=False)
+    idxs = np.searchsorted(cum_length, sample_distances, side="right") - 1
+    idxs = np.clip(idxs, 0, len(seg_lengths) - 1)
+
+    seg_starts = pts[idxs]
+    seg_vecs = diffs[idxs]
+    seg_lens = seg_lengths[idxs]
+    t = np.where(seg_lens > 0, (sample_distances - cum_length[idxs]) / np.where(seg_lens > 0, seg_lens, 1), 0)
+
+    return seg_starts + t[:, None] * seg_vecs
+
+
+def rotate_points(pts, theta):
+    c, s = np.cos(theta), np.sin(theta)
+    R = np.array([[c, -s], [s, c]])
+    return pts @ R.T
+
+
+def rotation_search_cost(blob_pts, ref_tree, coarse_step_deg=5, fine_step_deg=0.5):
     '''
-    greedily match each detected blob to the best-fitting unused solution
-    piece by shape (rotation-invariant matchShapes), then compute the exact
-    rotation delta needed to bring it into its solved orientation and the
-    translation needed to move it to its target position.
+    find the rotation (radians) that best overlays blob_pts onto the
+    reference contour represented by ref_tree (a cKDTree built from the
+    reference's resampled points), and the resulting mean nearest-neighbor
+    distance at that rotation (the match cost). Coarse-to-fine: scan every
+    coarse_step_deg first, then refine around the best coarse angle at
+    fine_step_deg for a more precise rotation estimate without scanning
+    the full 360 degrees at fine resolution.
     '''
-    remaining = list(solution_pieces)
+    best_angle, best_dist = 0.0, float("inf")
+
+    for deg in np.arange(0, 360, coarse_step_deg):
+        theta = np.radians(deg)
+        rotated = rotate_points(blob_pts, theta)
+        d, _ = ref_tree.query(rotated)
+        dist = d.mean()
+        if dist < best_dist:
+            best_dist, best_angle = dist, theta
+
+    coarse_deg = np.degrees(best_angle)
+    for deg in np.arange(coarse_deg - coarse_step_deg, coarse_deg + coarse_step_deg, fine_step_deg):
+        theta = np.radians(deg)
+        rotated = rotate_points(blob_pts, theta)
+        d, _ = ref_tree.query(rotated)
+        dist = d.mean()
+        if dist < best_dist:
+            best_dist, best_angle = dist, theta
+
+    # wrap into [-pi, pi)
+    best_angle = (best_angle + np.pi) % (2 * np.pi) - np.pi
+    return float(best_dist), float(best_angle)
+
+
+def build_piece_trees(solution_pieces, n_points=150):
+    '''precompute a resampled-point cKDTree for each solution piece, reused across all blobs.'''
+    trees = []
+    for sp in solution_pieces:
+        pts = resample_contour(sp["reference_contour"], n_points)
+        trees.append(cKDTree(pts))
+    return trees
+
+
+def build_cost_matrix(blobs, solution_pieces, n_points=150, coarse_step_deg=5, fine_step_deg=0.5):
+    '''
+    full (n_blobs x n_pieces) cost matrix using rotation-search contour
+    overlay distance, plus the best-fit rotation for each pair (needed
+    directly as rotation_delta_rad for whichever assignment is chosen).
+    '''
+    trees = build_piece_trees(solution_pieces, n_points=n_points)
+    n_blobs = len(blobs)
+    n_pieces = len(solution_pieces)
+
+    cost = np.zeros((n_blobs, n_pieces))
+    angle = np.zeros((n_blobs, n_pieces))
+
+    for i, blob in enumerate(blobs):
+        blob_pts = resample_contour(blob["contour"], n_points=n_points)
+        for j, tree in enumerate(trees):
+            dist, theta = rotation_search_cost(blob_pts, tree, coarse_step_deg, fine_step_deg)
+            cost[i, j] = dist
+            angle[i, j] = theta
+
+    return cost, angle
+
+
+def debug_print_cost_matrix(blobs, solution_pieces, top_n=3, n_points=150,
+                             coarse_step_deg=5, fine_step_deg=0.5):
+    '''
+    prints each blob's top_n closest solution-piece candidates by
+    rotation-search contour distance, sorted best-first. Run this before
+    trusting a matching fix -- if the top 2 candidates for a blob are very
+    close, that confirms ambiguity remains even with this stronger metric
+    (in which case the underlying blob contour itself may be noisy --
+    check for occlusion, touching pieces, or a still-imperfect mask).
+    '''
+    cost, _ = build_cost_matrix(blobs, solution_pieces, n_points, coarse_step_deg, fine_step_deg)
+    for i in range(len(blobs)):
+        scores = sorted(
+            [(solution_pieces[j]["id"], round(float(cost[i, j]), 4)) for j in range(len(solution_pieces))],
+            key=lambda x: x[1],
+        )
+        print(f"blob {i}: top {top_n} candidates -> {scores[:top_n]}")
+
+
+def match_and_align(blobs, solution_pieces, n_points=150, coarse_step_deg=5, fine_step_deg=0.5):
+    '''
+    globally optimal one-to-one matching between detected blobs and
+    solution pieces via the Hungarian algorithm on a rotation-search
+    contour-overlay cost matrix (see build_cost_matrix/rotation_search_cost).
+    rotation_delta_rad comes directly from the same rotation search that
+    produced the winning match, rather than from principal_angle -- this
+    also fixes rotation accuracy for pieces where global-shape-based angle
+    estimation (PCA + skew) was unreliable.
+    '''
+    n_blobs = len(blobs)
+    n_pieces = len(solution_pieces)
+
+    cost, angle = build_cost_matrix(blobs, solution_pieces, n_points, coarse_step_deg, fine_step_deg)
+    row_idx, col_idx = linear_sum_assignment(cost)
+
     matched = []
-
-    for blob in blobs:
-        best_piece, best_shape_score = None, float("inf")
-        for sp in remaining:
-            score = cv2.matchShapes(
-                blob["contour"].astype(np.float32),
-                sp["reference_contour"].astype(np.float32),
-                cv2.CONTOURS_MATCH_I1, 0.0,
-            )
-            if score < best_shape_score:
-                best_piece, best_shape_score = sp, score
-
-        if best_piece is None:
-            continue
-        remaining.remove(best_piece)
-
-        detected_angle = principal_angle(blob["contour"])
-        rotation_delta = (best_piece["reference_angle"] - detected_angle + np.pi) % (2 * np.pi) - np.pi
+    for i, j in zip(row_idx, col_idx):
+        blob = blobs[i]
+        best_piece = solution_pieces[j]
+        best_shape_score = cost[i, j]
+        rotation_delta = angle[i, j]
 
         translation = [
             round(best_piece["target_centroid"][0] - blob["centroid"][0], 2),
@@ -319,18 +451,15 @@ def match_and_align(blobs, solution_pieces):
             "rotation_delta_rad": round(float(rotation_delta), 4),
             "area": blob["area"],
             "shape_match_score": round(float(best_shape_score), 4),
-            # contours are stored centroid-centered; re-add the (already
-            # solved-orientation) centroid to get absolute-position polygons
-            # for debug visualization (see main.plot_moves)
             "current_contour": (blob["contour"] + blob["centroid"]).tolist(),
             "target_contour": (best_piece["reference_contour"] + best_piece["target_centroid"]).tolist(),
         })
 
-    if remaining:
-        # detected fewer pieces than the solution expects (occlusion, piece off-table, etc)
+    if n_blobs != n_pieces:
         matched_ids = {m["id"] for m in matched}
         missing = [sp["id"] for sp in solution_pieces if sp["id"] not in matched_ids]
-        print(f"Warning: {len(missing)} solution piece(s) not matched to any detected blob: {missing}")
+        print(f"Warning: {n_blobs} detected blob(s) vs {n_pieces} solution piece(s) -- "
+              f"unmatched solution piece(s): {missing}")
 
     return matched
 
@@ -346,17 +475,66 @@ def process_frame(image, solution_path=SOLUTION_KEY_PATH, min_area=200, output_p
     blobs = detect_blobs(bw, min_area=min_area)
 
     solution_pieces = load_solution(solution_path)
-    # print(solution_pieces)
-    # print("solution_pieces")
-    matched = match_and_align(blobs, solution_pieces)
 
+    # Uncomment to inspect match ambiguity before trusting the assignment:
+    # debug_print_cost_matrix(blobs, solution_pieces)
+
+    matched = match_and_align(blobs, solution_pieces)
 
     with open(output_path, "w") as f:
         json.dump({"pieces": matched}, f, indent=4)
 
     return matched
 
+def check_symmetry_ambiguity(blob, matched_piece, n_points=150, coarse_step_deg=5, fine_step_deg=0.5):
+    '''
+    for one matched (blob, solution_piece) pair, compares the winning
+    rotation's cost against the cost at the same rotation + 180 degrees.
+    If these are close, the piece's silhouette is near-symmetric and the
+    rotation search may have picked the wrong member of an ambiguous pair.
+    '''
+    blob_pts = resample_contour(blob["contour"], n_points)
+    ref_pts = resample_contour(matched_piece["reference_contour"], n_points)
+    tree = cKDTree(ref_pts)
 
+    dist_a, angle_a = rotation_search_cost(blob_pts, tree, coarse_step_deg, fine_step_deg)
+
+    best_flip_dist = float("inf")
+    for deg in np.arange(175, 185, fine_step_deg):
+        rotated = rotate_points(blob_pts, np.radians(deg))
+        d, _ = tree.query(rotated)
+        if d.mean() < best_flip_dist:
+            best_flip_dist = d.mean()
+
+    ratio = best_flip_dist / dist_a if dist_a > 0 else float("inf")
+    print(f"chosen angle: {np.degrees(angle_a):.1f} deg, cost {dist_a:.4f}   "
+          f"180-flipped cost: {best_flip_dist:.4f}   ratio: {ratio:.2f}")
+    return dist_a, best_flip_dist
+
+
+def debug_check_flipped_pieces(image, flipped_ids, solution_path=SOLUTION_KEY_PATH, min_area=200):
+    '''
+    runs the real detection+matching pipeline on `image`, then for each
+    piece id in flipped_ids, prints its symmetry-ambiguity check. Use this
+    to confirm (or rule out) near-180-degree-symmetric silhouettes as the
+    cause of specific pieces landing rotated wrong.
+    '''
+    bw = clean(image)
+    blobs = detect_blobs(bw, min_area=min_area)
+    solution_pieces = load_solution(solution_path)
+    matched = match_and_align(blobs, solution_pieces)
+
+    solution_by_id = {sp["id"]: sp for sp in solution_pieces}
+    blobs_by_centroid = {tuple(b["centroid"]): b for b in blobs}
+
+    for m in matched:
+        if m["id"] not in flipped_ids:
+            continue
+        blob = blobs_by_centroid[tuple(m["current_centroid"])]
+        piece = solution_by_id[m["id"]]
+        print(f"--- piece id {m['id']} ---")
+        check_symmetry_ambiguity(blob, piece)
+        
 if __name__ == "__main__":
     # Example usage:
     #

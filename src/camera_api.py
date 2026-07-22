@@ -27,29 +27,34 @@ class DepthAICamera:
         print("Init DAI")
         print(f"sim: {self.simulated}")
     
-    def capture(self, image_path = "media/captures/Capture.png"):
+    def capture(self, image_path="media/captures/Capture.png"):
         if not self.simulated:
-            # Connect to device and create pipeline
             with dai.Pipeline() as pipeline:
-                # OAK-D Pro's color camera is on socket CAM_A (center)
                 camRgb = pipeline.create(dai.node.Camera).build(dai.CameraBoardSocket.CAM_A)
-
-                # Request a still/video output at a given resolution
                 output = camRgb.requestOutput((1920, 1080))
                 videoQueue = output.createOutputQueue()
+                controlQueue = camRgb.inputControl.createInputQueue()
 
                 pipeline.start()
 
-                # Grab one frame
+                ctrl = dai.CameraControl()
+                ctrl.setManualExposure(exposureTimeUs=5000, sensitivityIso=200)
+                ctrl.setManualFocus(lensPosition=130)
+                ctrl.setSharpness(0)
+                ctrl.setLumaDenoise(0)
+                ctrl.setChromaDenoise(4)
+                controlQueue.send(ctrl)
+
+                import time
+                time.sleep(3.0)
+
                 videoFrame = videoQueue.get()
                 frame = videoFrame.getCvFrame()
 
-                # Save it
-                cv2.imwrite(image_path, frame) 
-                print(f"Saved {image_path}") # save image 
+                cv2.imwrite(image_path, frame)
+                print(f"Saved {image_path}")
         else:
             print("logging: camera_api SIMULATED RUN")
-
 
 if __name__ == "__main__":
     c = Camera(simulated=0)

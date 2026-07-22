@@ -15,8 +15,8 @@ DEPTHAI="depthai"
 ### edit the vars below 
 
 SIMULATION = 0
-RECALIBRATE= 1
-CAPTURE_FRESH = 1
+RECALIBRATE= 0
+CAPTURE_FRESH = 0
 
 
 PUZZLE_TYPE = WIGGLY
@@ -25,7 +25,7 @@ GRIPPER_TYPE = DIGITALOUT_URSCRIPT
 CAMERA_TYPE = DEPTHAI
 
 PUZZLE_PATH = "media/puzzles/wiggly/Puzzle_12.png" # png path used for solution key generation
-CAPTURE_PATH = "media/captures_raw/test_photo.png" # png path that the live camera capture saves to
+CAPTURE_PATH = "media/captures_raw/photo.png" # png path that the live camera capture saves to
 CONFIG_PATH = "configs/config.json" # json path where configurations are stored
 CURRENT_PIECES_PATH = "configs/current_pieces.json" # json path where current piece information is saved to (like PCA, moments of each detected piece)
 SOLUTION_KEY_PATH = "configs/solution_key.json" # json path of 

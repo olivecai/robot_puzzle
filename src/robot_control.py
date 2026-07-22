@@ -122,42 +122,63 @@ def _pose(x, y, z, rv=None):
     rx, ry, rz = rv if rv is not None else TOOL_ORIENTATION_RV
     return f"p[{x:.4f}, {y:.4f}, {z:.4f}, {rx:.4f}, {ry:.4f}, {rz:.4f}]"
 
-
 def build_pick_place_script(move, affine, rtde_r):
     pick_x, pick_y = pixel_to_robot_xy(*move["current_centroid"], affine)
     place_x, place_y = pixel_to_robot_xy(*move["target_centroid"], affine)
     place_x += ASSEMBLY_OFFSET_M[0]
     place_y += ASSEMBLY_OFFSET_M[1]
 
-    current_q = rtde_r.getActualQ()
-    target_q = find_safe_wrist3(current_q, move["rotation_delta_rad"])
+    rotation_delta_rad = move["rotation_delta_rad"]
 
-    if target_q is None:
+    # rough pre-flight sanity check only -- NOT the value actually sent.
+    # Uses whatever joints we're at right now, just to catch a wildly
+    # unreachable rotation early; the real baseline is read live below.
+    current_q = rtde_r.getActualQ()
+    preflight_q = find_safe_wrist3(current_q, rotation_delta_rad)
+    if preflight_q is None:
         raise RuntimeError(
-            f"No joint-safe wrist3 solution for piece {move['id']} "
-            f"(rotation_delta_rad={move['rotation_delta_rad']:.3f})"
+            f"piece {move['id']}: rotation_delta_rad={rotation_delta_rad:.3f} "
+            f"looks unreachable even as a rough pre-check -- needs manual review."
         )
 
-    place_rv = compose_rotation_rv(TOOL_ORIENTATION_RV, move["rotation_delta_rad"])
-
-    pick_travel = _pose(pick_x, pick_y, SAFE_Z_M)
+    pick_travel = _pose(pick_x, pick_y, SAFE_Z_M)      # unrotated -- no Rodrigues needed
     pick_grip = _pose(pick_x, pick_y, PICK_Z_M)
-    place_travel = _pose(place_x, place_y, SAFE_Z_M, rv=place_rv)
-    place_release = _pose(place_x, place_y, PLACE_Z_M, rv=place_rv)
+    place_travel = _pose(place_x, place_y, SAFE_Z_M)   # unrotated -- arrives here, THEN rotates
 
-    a, v = 0.2, 0.04
+    lo, hi = JOINT_LIMITS_RAD[5]
+    margin = np.radians(10)
+
     return {
-        "approach_pick": f"movel({pick_travel}, a={a}, v={v})",
-        "descend_pick": f"movel({pick_grip}, a={a}, v={v})",
-        "lift_after_pick": f"movel({pick_travel}, a={a}, v={v})",
-        "approach_place": f"movel({place_travel}, a={a}, v={v})",
-        "descend_place": f"movel({place_release}, a={a}, v={v})",
-        "lift_after_place": f"movel({place_travel}, a={a}, v={v})",
-    }
+        "approach_pick": f"movel({pick_travel}, a=0.2, v=0.04)",
+        "descend_pick": f"movel({pick_grip}, a=0.2, v=0.04)",
+        "lift_after_pick": f"movel({pick_travel}, a=0.2, v=0.04)",
+        "approach_place": f"movel({place_travel}, a=0.2, v=0.04)",
+        "rotate_at_place": f"""
+        local q_now = get_actual_joint_positions()
+        local target_w3 = q_now[5] + ({rotation_delta_rad})
+        if target_w3 > {lo + margin} and target_w3 < {hi - margin}:
+            q_now[5] = target_w3
+        elif q_now[5] + ({rotation_delta_rad} + 2*3.14159265) < {hi - margin}:
+            q_now[5] = q_now[5] + ({rotation_delta_rad} + 2*3.14159265)
+        elif q_now[5] + ({rotation_delta_rad} - 2*3.14159265) > {lo + margin}:
+            q_now[5] = q_now[5] + ({rotation_delta_rad} - 2*3.14159265)
+        end
+        movej(q_now, a=0.3, v=0.3)
+        """,
+                "descend_place": f"""
+        local p_now = get_actual_tcp_pose()
+        p_now[2] = {PLACE_Z_M}
+        movel(p_now, a=0.2, v=0.04)
+        """,
+                "lift_after_place": f"""
+        local p_now = get_actual_tcp_pose()
+        p_now[2] = {SAFE_Z_M}
+        movel(p_now, a=0.2, v=0.04)
+        """,
+            }
 
 
 def execute_move(move, affine, gripper, simulated, rtde_r):
-    '''run one piece's full pick -> place sequence as a single URScript program.'''
     script = build_pick_place_script(move, affine, rtde_r)
 
     full_script = f"""
@@ -168,6 +189,7 @@ def pick_place_sequence():
     set_tool_digital_out(1, True)
     {script["lift_after_pick"]}
     {script["approach_place"]}
+    {script["rotate_at_place"]}
     {script["descend_place"]}
     set_tool_digital_out(1, False)
     set_tool_digital_out(0, True)
@@ -175,7 +197,6 @@ def pick_place_sequence():
 end
 pick_place_sequence()
 """
-
     with open("ROBOTMOVES.txt", mode="a") as f:
         f.write(f"LOGGING robot_control.py : [SIMULATION]\n{full_script}\n")
     if not simulated:
@@ -195,13 +216,13 @@ def execute_moves(moves, rtde_r, config_path=CONFIG_PATH, simulated=SIMULATION):
 
     gripper = Gripper(simulated=simulated)
 
+
     for move in moves:
-        go_to_pose_centroid()
-        wait_until_robot_stopped(rtde_r)
+        if not simulated:
+            go_to_pose_centroid()
+            wait_until_robot_stopped(rtde_r)
         execute_move(move, affine, gripper, simulated, rtde_r)
         if not simulated:
-            msg = "popup('continue', title='Operator Prompt', blocking=True)"
-            robot_message_send(msg)
             wait_until_robot_stopped(rtde_r)
 
 
@@ -213,7 +234,7 @@ def go_to_pose_camera_capture():
 
     script = f"""
 def go_to_saved_pose():
-    movej([{joints[0]}, {joints[1]}, {joints[2]}, {joints[3]}, {joints[4]}, {joints[5]}], a=0.2, v=0.05)
+    movej([{joints[0]}, {joints[1]}, {joints[2]}, {joints[3]}, {joints[4]}, {joints[5]}], a=0.2, v=0.4)
 end
 go_to_saved_pose()
 """
@@ -227,7 +248,7 @@ def go_to_pose_centroid():
 
     script = f"""
 def go_to_saved_pose():
-    movej([{joints[0]}, {joints[1]}, {joints[2]}, {joints[3]}, {joints[4]}, {joints[5]}], a=0.2, v=0.1)
+    movej([{joints[0]}, {joints[1]}, {joints[2]}, {joints[3]}, {joints[4]}, {joints[5]}], a=0.2, v=0.8)
 end
 go_to_saved_pose()
 """

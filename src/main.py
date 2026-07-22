@@ -162,6 +162,7 @@ def main():
     rtde_r = RTDEReceiveInterface(ROBOT_IP)
     robot_control.go_to_pose_camera_capture()
     robot_control.wait_until_robot_stopped(rtde_r)
+
     # first create a puzzle object. optional args but you can just set the values in const.py and then run this prog (puzzletype: str = PUZZLE_TYPE, puzzlepath: str = "media/puzzles/puzzle.png", recalibrate: int = RECALIBRATE, simulated: int = SIMULATION) -> Puzzle
     puzzle = Puzzle()
     cam = Camera()
@@ -187,15 +188,24 @@ def main():
     # print("moves")
     # print(moves)
 
-    # print("LOGGING EXITING EARLY TEMPORARY in main()")
-    exit()
+    TEMPORARY_SIM = 1
     if moves is not None:
         print(f"computed {len(moves)} piece moves -> configs/current_pieces.json")
         plot_moves(moves)
-        robot_control.execute_moves(moves, simulated=0, rtde_r=rtde_r)
+        robot_control.execute_moves(moves, simulated=TEMPORARY_SIM, rtde_r=rtde_r)
         
+
 
 if __name__ == "__main__":
     main()
+    # import cv2
+    # from const import CAPTURE_PATH
+
+    # image = cv2.imread(CAPTURE_PATH)
+
+    # # replace with the actual piece ids you observed landing rotated wrong
+    # flipped_ids = [0, 5, 9]
+
+    # puzzle_solver.debug_check_flipped_pieces(image, flipped_ids)
 
     
