@@ -17,25 +17,11 @@ Then we have a sort of rule: IF you want to integrate your custom puzzle, THEN i
 '''
 
 class Puzzle:
-    def __init__(self, puzzletype = PUZZLE_TYPE, puzzlepath=PUZZLE_PATH, recalibrate=RECALIBRATE, simulated=SIMULATION):
+    def __init__(self, puzzletype = PUZZLE_TYPE, puzzlepath=PUZZLE_PATH, recalibrate=RECALIBRATE, simulated=SIMULATION, config_path=CONFIG_PATH):
         
         # set self.puzzle, but actually we dont strictly need to access this field
         if PUZZLE_TYPE == WIGGLY:
-            self.puzzle=WigglyPuzzle(puzzlepath=puzzlepath, recalibrate=recalibrate, simulated=SIMULATION)
-    
-    def calibrate(self):
-        '''
-        populate self.config with the path to the calibration file
-        '''
-        if self.puzzle.recalibrate: # if recalibrate = 1
-            self.config = calibrate() # runs the click-4-corners UI, saves config.json
-        else: # if recalibrate=0:
-            self.config = CONFIG_PATH
-
-        if not os.path.exists(self.config):
-            raise FileNotFoundError(
-                f"No calibration found at {self.config} -- run with recalibrate=1 first"
-            )
+            self.puzzle=WigglyPuzzle(puzzlepath=puzzlepath, recalibrate=recalibrate, simulated=simulated)
         
     def build_answerkey(self):
         self.puzzle.build_answerkey()
@@ -56,18 +42,11 @@ class WigglyPuzzle:
         # filepath to selected puzzle
         self.puzzlepath : str = puzzlepath
         self.answerkey_img = cv2.imread(puzzlepath)
+        self.simulated=simulated
 
-        # bool whether shld recalibr or not
-        self.recalibrate : bool = recalibrate
-
-        self.config = None
         self.solution_pieces = None
         self.moves = None
 
-        # acquire live image of the current table state
-        self.camera = Camera(simulated=simulated)
-        self.capture_path = CAPTURE_PATH
-        self.camera.capture(self.capture_path)
 
 
     def build_answerkey(self):
@@ -84,9 +63,9 @@ class WigglyPuzzle:
         returns the translation/rotation each detected piece needs to reach
         its solved position
         '''
-        current_img = cv2.imread(self.capture_path)
+        current_img = cv2.imread(CAPTURE_PATH)
         if current_img is None:
-            print(f"No live capture found at {self.capture_path} (SIMULATION={SIMULATION}); skipping solve")
+            print(f"No live capture found at {CAPTURE_PATH} (SIMULATION={self.simulated}); skipping solve")
             return None
 
         print("LOGGING puzzle::solve_current; processing frame now...")

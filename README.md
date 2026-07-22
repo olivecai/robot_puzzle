@@ -62,3 +62,20 @@ https://docs.luxonis.com/software-v3/depthai/api/python/
 
 camera acquisition works, run setup_udev_rules.sh for devices perms and then run camera_api.py
 
+### UR ROBOT 
+
+Settings > Security > Services 
+- enter password to Unlock
+- enable Primary Client Interface
+
+Settings > System
+- enable Static Address OR DHCP
+
+In the top right hand corner of the tablet
+- click the "Local" icon to "Remote Control"
+
+
+
+### CALIBRATING
+
+- bottom right corner:

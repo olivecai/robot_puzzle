@@ -15,7 +15,7 @@ uses depth api to capture with luxonis cam
 class Camera:
     def __init__(self,  camera_type =CAMERA_TYPE, simulated=SIMULATION):
         if CAMERA_TYPE == DEPTHAI:
-            self.camera=DepthAICamera(simulated=SIMULATION)
+            self.camera=DepthAICamera(simulated=simulated)
 
     def capture(self, image_path = f"media/captures/Capture_{datetime.now()}.png"):
         self.camera.capture(image_path=image_path)
@@ -24,6 +24,8 @@ class Camera:
 class DepthAICamera:
     def __init__(self, simulated=SIMULATION):
         self.simulated = simulated
+        print("Init DAI")
+        print(f"sim: {self.simulated}")
     
     def capture(self, image_path = "media/captures/Capture.png"):
         if not self.simulated:

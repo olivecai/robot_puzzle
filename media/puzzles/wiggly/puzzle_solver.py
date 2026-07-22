@@ -56,7 +56,7 @@ def warp(image, config_path=CONFIG_PATH):
 # Live-capture pipeline: pieces are solid black blobs on a white table
 # ---------------------------------------------------------------------------
 
-def clean(image, floor=60, ceiling=200, config_path=CONFIG_PATH):
+def clean(image, floor=180, ceiling=200, config_path=CONFIG_PATH):
     '''
     crop and edit image for processing --> environment is calibrated once
     initially; there exists a transformation matrix from valid cartesian
@@ -73,7 +73,7 @@ def clean(image, floor=60, ceiling=200, config_path=CONFIG_PATH):
     stretched = np.clip(gray, floor, ceiling).astype(np.float32)
     stretched = (stretched - floor) * (255.0 / (ceiling - floor))
 
-    _, bw = cv2.threshold(stretched.astype(np.uint8), 127, 255, cv2.THRESH_BINARY)
+    _, bw = cv2.threshold(stretched.astype(np.uint8), 200, 255, cv2.THRESH_BINARY)
     return bw
 
 
@@ -345,11 +345,10 @@ def process_frame(image, solution_path=SOLUTION_KEY_PATH, min_area=200, output_p
     bw = clean(image)
 
     blobs = detect_blobs(bw, min_area=min_area)
-    print("blobs")
-    print(blobs)
+
     solution_pieces = load_solution(solution_path)
-    print(solution_pieces)
-    print("solution_pieces")
+    # print(solution_pieces)
+    # print("solution_pieces")
     matched = match_and_align(blobs, solution_pieces)
 
 

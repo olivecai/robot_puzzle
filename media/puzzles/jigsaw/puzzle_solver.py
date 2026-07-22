@@ -10,32 +10,130 @@ from const import *
 # Shared geometry helpers
 # ---------------------------------------------------------------------------
 
-def principal_angle(cnt):
+def piece_orientation(cnt):
     '''
-    compute a shape's orientation as a single angle in [-pi, pi), using PCA
-    for the axis and third-moment skew to resolve the 180-degree ambiguity
-    PCA alone can't distinguish. cnt must already be centered on its own
-    centroid (mean-subtracted). Requires an asymmetric (non-mirror-symmetric)
-    shape to give a stable result.
+    determine a jigsaw piece's rotation, in [-pi, pi), from its minimum-area
+    bounding rectangle rather than an inertia-tensor PCA axis (as used for
+    the "wiggly" puzzle type -- see media/puzzles/wiggly/puzzle_solver.py's
+    principal_angle). Standard jigsaw pieces are near-square with small
+    tab/blank perturbations on each side; PCA on the mass distribution can
+    be unstable for this shape family -- a tab on one side and a blank on
+    the opposite side partially cancel in the inertia tensor, and a
+    near-square piece doesn't have the strongly elongated principal axis
+    PCA needs to be well-conditioned. minAreaRect instead fits directly to
+    the piece's dominant square body, which stays stable regardless of
+    where its tabs/blanks happen to be.
+
+    cnt must be centroid-relative (mean-subtracted), matching the
+    convention used everywhere else in this module.
+
+    minAreaRect's angle is only defined mod 90 degrees (an axis-aligned
+    square looks identical rotated by any multiple of 90). The correct one
+    of the 4 candidate quadrant rotations is resolved by picking whichever
+    one points the piece's single farthest-from-center point (almost
+    always the tip of its most prominent tab) closest to +x. This is an
+    arbitrary choice of "zero rotation" for a given piece shape, but a
+    *reproducible* one -- which is all a reference_angle zero-point needs
+    to be, since rotation_delta_rad is always a difference between two
+    calls of this same function (see match_and_align).
     '''
-    pts = cnt.astype(np.float64)
-    cov = np.cov(pts.T)
-    eigvals, eigvecs = np.linalg.eigh(cov)  # ascending order
-    principal = eigvecs[:, -1]  # eigenvector for the largest eigenvalue
+    rect = cv2.minAreaRect(cnt.astype(np.float32))
+    base_angle = np.deg2rad(rect[-1])
+    candidates = [base_angle + k * (np.pi / 2) for k in range(4)]
 
-    angle = np.arctan2(principal[1], principal[0])
+    farthest = cnt[np.argmax(np.linalg.norm(cnt, axis=1))]
+    farthest_angle = np.arctan2(farthest[1], farthest[0])
 
-    proj = pts @ principal
-    skew = np.mean(proj ** 3)
-    if skew < 0:
-        angle += np.pi
+    def ang_diff(a, b):
+        return abs((a - b + np.pi) % (2 * np.pi) - np.pi)
 
-    return (angle + np.pi) % (2 * np.pi) - np.pi
+    best = min(candidates, key=lambda c: ang_diff(farthest_angle, c))
+    return (best + np.pi) % (2 * np.pi) - np.pi
+
+
+def classify_piece_edges(cnt, flat_thresh_ratio=0.06):
+    '''
+    classify each of a piece's 4 sides -- in minAreaRect box-corner order
+    -- as "tab" (bulges outward past the piece's dominant square body),
+    "blank" (notches inward), or "flat" (an unmodified outer
+    puzzle-boundary edge, no interlock). This is the genuinely
+    jigsaw-specific signature: unlike a generic wiggly region, a real
+    jigsaw piece's identity is defined by which of its 4 sides interlock
+    and how, not just its overall silhouette.
+
+    Every contour point is assigned to whichever side's outward-normal
+    direction (from the box center) its own angular position is closest
+    to -- a robust partition into 4 "pie slices" that works even for the
+    large, round tabs typical of real jigsaw pieces (a linear projection
+    onto each side's segment, windowed by position along it, was tried
+    first and broke down here: a big tab's points can satisfy a
+    neighboring side's window too, without a proximity/angle check to
+    keep them separated).
+
+    flat_thresh_ratio: how far (relative to the box's average side length)
+    a side's contour must bulge/notch to count as a tab/blank rather than
+    noise/flat. Tune up if flat edges are being misread as shallow
+    tabs/blanks; down if real tabs/blanks aren't being detected.
+
+    Returns a list of 4 strings; edges[i] is the side between
+    cv2.boxPoints(cv2.minAreaRect(cnt))[i] and [(i + 1) % 4].
+    '''
+    rect = cv2.minAreaRect(cnt.astype(np.float32))
+    box_center = np.array(rect[0], dtype=np.float64)
+    box = cv2.boxPoints(rect).astype(np.float64)
+    side_len = np.mean([np.linalg.norm(box[(i + 1) % 4] - box[i]) for i in range(4)])
+    thresh = flat_thresh_ratio * side_len
+
+    def ang_diff(a, b):
+        return np.abs((a - b + np.pi) % (2 * np.pi) - np.pi)
+
+    normals = []
+    for i in range(4):
+        p0, p1 = box[i], box[(i + 1) % 4]
+        edge_dir = (p1 - p0) / np.linalg.norm(p1 - p0)
+        normal = np.array([-edge_dir[1], edge_dir[0]])
+        if np.dot(normal, (p0 + p1) / 2 - box_center) < 0:
+            normal = -normal  # make sure it actually points away from the box center
+        normals.append(normal)
+    normal_angles = np.array([np.arctan2(n[1], n[0]) for n in normals])
+
+    rel_to_center = cnt - box_center
+    point_angles = np.arctan2(rel_to_center[:, 1], rel_to_center[:, 0])
+    owner = np.argmin([ang_diff(point_angles, na) for na in normal_angles], axis=0)
+
+    edges = []
+    for i in range(4):
+        pts = cnt[owner == i]
+        if len(pts) == 0:
+            edges.append("flat")
+            continue
+
+        p0 = box[i]
+        d = (pts - p0) @ normals[i]
+        max_out = d.max()
+        max_in = -d.min()
+
+        if max_out > thresh and max_out >= max_in:
+            edges.append("tab")
+        elif max_in > thresh:
+            edges.append("blank")
+        else:
+            edges.append("flat")
+
+    return edges
 
 
 def contour_of_mask(mask):
-    '''return the largest external contour found in a binary mask, as an (N,2) float array.'''
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    '''
+    return the largest external contour found in a binary mask, as an
+    (N, 2) float array. Uses CHAIN_APPROX_NONE (every boundary pixel), not
+    CHAIN_APPROX_SIMPLE -- classify_piece_edges needs actual point density
+    along flat/straight runs to detect them; CHAIN_APPROX_SIMPLE compresses
+    a straight edge down to just its 2 endpoints, which starves flat sides
+    of data while curvy tab/blank sides stay dense, and was misreading
+    every flat edge as a tab/blank.
+    '''
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     cnt = max(contours, key=cv2.contourArea)
     return cnt.reshape(-1, 2).astype(np.float64)
 
@@ -56,7 +154,7 @@ def warp(image, config_path=CONFIG_PATH):
 # Live-capture pipeline: pieces are solid black blobs on a white table
 # ---------------------------------------------------------------------------
 
-def clean(image, floor=60, ceiling=200, config_path=CONFIG_PATH):
+def clean(image, floor=150, ceiling=200, config_path=CONFIG_PATH):
     '''
     crop and edit image for processing --> environment is calibrated once
     initially; there exists a transformation matrix from valid cartesian
@@ -73,15 +171,16 @@ def clean(image, floor=60, ceiling=200, config_path=CONFIG_PATH):
     stretched = np.clip(gray, floor, ceiling).astype(np.float32)
     stretched = (stretched - floor) * (255.0 / (ceiling - floor))
 
-    _, bw = cv2.threshold(stretched.astype(np.uint8), 127, 255, cv2.THRESH_BINARY)
+    _, bw = cv2.threshold(stretched.astype(np.uint8), 230, 255, cv2.THRESH_BINARY)
     return bw
 
 
 def detect_blobs(bw, min_area=200):
     '''
     find each piece blob in a cleaned (binary) image. returns each blob's
-    centroid (in full-image coordinates) and its contour re-centered on
-    that centroid (so shape comparison is position-independent).
+    centroid (in full-image coordinates), its contour re-centered on that
+    centroid (so shape comparison is position-independent), and its 4-side
+    tab/blank/flat signature (see classify_piece_edges).
 
     table is pure white (255), pieces are pure black (0).
     '''
@@ -103,6 +202,7 @@ def detect_blobs(bw, min_area=200):
             "centroid": [round(float(cx), 2), round(float(cy), 2)],
             "area": area,
             "contour": cnt,
+            "edge_types": classify_piece_edges(cnt),
         })
 
     return blobs
@@ -150,6 +250,7 @@ def extract_regions(image, min_area=5000, line_threshold=200, close_iters=1):
             "centroid": [round(float(cx), 2), round(float(cy), 2)],
             "area": area,
             "contour": cnt_centered,
+            "edge_types": classify_piece_edges(cnt_centered),
         })
 
     return regions
@@ -162,8 +263,8 @@ def fit_scale_and_offset(src_size, area_px):
     offset_y)) such that mapped_point = original_point * scale + offset.
 
     uniform scale (same factor on x and y) is required so that angles --
-    principal_angle/rotation_delta_rad and matchShapes -- aren't distorted;
-    an independent x/y scale would stretch piece shapes.
+    piece_orientation/matchShapes -- aren't distorted; an independent x/y
+    scale would stretch piece shapes.
     '''
     src_w, src_h = src_size
     x0, y0, x1, y1 = area_px
@@ -198,8 +299,10 @@ def build_solution_key(image, config_path=CONFIG_PATH, output_path=SOLUTION_KEY_
     '''
     process an answer-key photo into solution_key.json: one entry per
     piece, with its target centroid (where it belongs), reference contour
-    (its shape in solved orientation), and reference angle (its "solved"
-    rotation, used as the zero-point for rotation deltas later).
+    (its shape in solved orientation), reference angle (its "solved"
+    rotation, used as the zero-point for rotation deltas later, see
+    piece_orientation), and its tab/blank/flat edge signature (see
+    classify_piece_edges).
 
     apply_calibration: set False if the answer key was captured/generated
     independently of the robot's calibrated camera frame (e.g. a rendered
@@ -256,7 +359,8 @@ def build_solution_key(image, config_path=CONFIG_PATH, output_path=SOLUTION_KEY_
             "target_centroid": [round(cx * scale + offset_x, 2), round(cy * scale + offset_y, 2)],
             # centroid-relative, so only the scale applies (no offset)
             "reference_contour": (region["contour"] * scale).tolist(),
-            "reference_angle": round(float(principal_angle(region["contour"])), 4),
+            "reference_angle": round(float(piece_orientation(region["contour"])), 4),
+            "edge_types": region["edge_types"],
             "area": round(region["area"] * scale ** 2, 2),
         })
 
@@ -285,6 +389,15 @@ def match_and_align(blobs, solution_pieces):
     piece by shape (rotation-invariant matchShapes), then compute the exact
     rotation delta needed to bring it into its solved orientation and the
     translation needed to move it to its target position.
+
+    matchShapes (Hu moments) is the primary matcher, same as the wiggly
+    puzzle type -- it's already rotation/scale-invariant and works fine on
+    jigsaw silhouettes. edge_types (tab/blank/flat per side) is carried
+    through into the output for visibility/debugging but doesn't currently
+    constrain matching; incorporating it as a secondary signal (e.g.
+    requiring a cyclic match of edge_types once rotation_delta is known)
+    would add robustness against near-identical piece shapes, but needs
+    real scrambled-piece test data to validate before relying on it.
     '''
     remaining = list(solution_pieces)
     matched = []
@@ -304,7 +417,7 @@ def match_and_align(blobs, solution_pieces):
             continue
         remaining.remove(best_piece)
 
-        detected_angle = principal_angle(blob["contour"])
+        detected_angle = piece_orientation(blob["contour"])
         rotation_delta = (best_piece["reference_angle"] - detected_angle + np.pi) % (2 * np.pi) - np.pi
 
         translation = [
@@ -320,6 +433,8 @@ def match_and_align(blobs, solution_pieces):
             "rotation_delta_rad": round(float(rotation_delta), 4),
             "area": blob["area"],
             "shape_match_score": round(float(best_shape_score), 4),
+            "current_edge_types": blob["edge_types"],
+            "target_edge_types": best_piece["edge_types"],
             # contours are stored centroid-centered; re-add the (already
             # solved-orientation) centroid to get absolute-position polygons
             # for debug visualization (see main.plot_moves)
@@ -343,15 +458,9 @@ def process_frame(image, solution_path=SOLUTION_KEY_PATH, min_area=200, output_p
     (translation + rotation) to current_pieces.json.
     '''
     bw = clean(image)
-
     blobs = detect_blobs(bw, min_area=min_area)
-    print("blobs")
-    print(blobs)
     solution_pieces = load_solution(solution_path)
-    print(solution_pieces)
-    print("solution_pieces")
     matched = match_and_align(blobs, solution_pieces)
-
 
     with open(output_path, "w") as f:
         json.dump({"pieces": matched}, f, indent=4)
@@ -364,7 +473,7 @@ if __name__ == "__main__":
     #
     # 1) One-time: build the solution key from a photo/render of the
     #    solved puzzle.
-    # answer_key_img = cv2.imread("Puzzle_12.png")
+    # answer_key_img = cv2.imread("j4.png")
     # build_solution_key(answer_key_img, apply_calibration=False)
     #
     # 2) Each time you want to solve: capture the current table state and

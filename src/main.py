@@ -16,9 +16,14 @@ Class for Puzzle exists so that you can solve different kinds of puzzles
 '''
 import json
 import os
+from datetime import datetime
 
+import cv2
 import robot_control
 from puzzle import Puzzle
+from camera_api import Camera
+
+from calibrate_static import calibrate
 import media.puzzles.wiggly.puzzle_solver as puzzle_solver
 from const import *
 
@@ -26,6 +31,26 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon, Rectangle
 
+import json
+
+from robot_message_send import robot_message_send
+from configs.robot import ROBOT_IP, PORT
+
+def go_to_pose_camera_capture():
+
+    with open("configs/camera_capture_joint_pose.json") as f:
+        data = json.load(f)
+
+    joints = data["joints"]  # [base, shoulder, elbow, wrist1, wrist2, wrist3] in radians
+
+    script = f"""
+    def go_to_saved_pose():
+        movej([{joints[0]}, {joints[1]}, {joints[2]}, {joints[3]}, {joints[4]}, {joints[5]}], a=0.2, v=0.05)
+    end
+    go_to_saved_pose()
+    """
+
+    robot_message_send(script)
 
 def plot_moves(moves, config_path=CONFIG_PATH, scatter_area_px=SCATTER_AREA_PX,
                 assembly_offset_m=ASSEMBLY_OFFSET_M, puzzle_size_m=PUZZLE_SOLVED_SIZE_M):
@@ -147,10 +172,21 @@ def main():
     '''
 
     # first create a puzzle object. optional args but you can just set the values in const.py and then run this prog (puzzletype: str = PUZZLE_TYPE, puzzlepath: str = "media/puzzles/puzzle.png", recalibrate: int = RECALIBRATE, simulated: int = SIMULATION) -> Puzzle
-    puzzle = Puzzle()
+    puzzle = Puzzle(simulated=1)
+    cam = Camera(simulated=0)
+    # cam.capture(image_path=CAPTURE_PATH)
+    raw_image = cv2.imread(CAPTURE_PATH)
+    if raw_image is None:
+        print(f"No capture found at {CAPTURE_PATH}; skipping black/white preview")
+    else:
+        processed_image = puzzle_solver.clean(raw_image)
+        os.makedirs("media/captures_processed", exist_ok=True)
+        cv2.imwrite(f"media/captures_processed/{os.path.basename(CAPTURE_PATH)}", processed_image)
 
-    puzzle.calibrate() # after this step, calibration config.json exists else prog shld panic
-    print(f"loaded config: {puzzle.config}")
+    if RECALIBRATE:
+        puzzle.config = calibrate() # after this step, calibration config.json exists else prog shld panic
+
+    print(f"loaded config: {CONFIG_PATH}")
 
     puzzle.build_answerkey()
     print(f"solution key built: {len(puzzle.get_solution_pieces())} pieces")
@@ -162,8 +198,11 @@ def main():
     if moves is not None:
         print(f"computed {len(moves)} piece moves -> configs/current_pieces.json")
         plot_moves(moves)
-        robot_control.execute_moves(moves)
+        robot_control.execute_moves(moves, simulated=0)
         
 
 if __name__ == "__main__":
+    go_to_pose_camera_capture()
     main()
+
+    

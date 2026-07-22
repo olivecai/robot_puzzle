@@ -20,7 +20,7 @@ TODO for olivia read this document: https://media.schmalz.com/MAM_Library/Dokume
 class Gripper:
     def __init__(self, grippertype=GRIPPER_TYPE, simulated=SIMULATION):
         if grippertype == DIGITALOUT_URSCRIPT:
-            self.gripper = DigitalOutURScriptGripper(simulated=SIMULATION)
+            self.gripper = DigitalOutURScriptGripper(simulated=simulated)
     
     def on(self):
         self.gripper.on()
@@ -40,7 +40,7 @@ class DigitalOutURScriptGripper:
         self._set(False)
 
     def _set(self, state):
-        command = f"set_digital_out({VACUUM_DIGITAL_OUT}, {state})"
+        command = f"set_tool_digital_out({VACUUM_DIGITAL_OUT}, {state})"
         if self.simulated:
             print(f"logging: gripper_api SIMULATED RUN -- {command}")
         else:
