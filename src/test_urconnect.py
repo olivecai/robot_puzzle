@@ -47,10 +47,10 @@ q = rtde_r.getActualQ()             # joint angles in radians
 print("TCP Pose (x, y, z, rx, ry, rz):", pose)
 print("Joint Positions (rad):", q)
 
-with open("configs/calibration/pick_place.json", "w") as f:
+with open("configs/camera_capture_joint_pose.json", "w") as f:
     json.dump({"tcp_pose": pose, "joints": q}, f, indent=4)
 
-print("Saved to configs/calibration/pick_place.json")
+print("Saved to configs/camera_capture_joint_pose.json")
 
 # g = Gripper(simulated=0)
 # g.on()

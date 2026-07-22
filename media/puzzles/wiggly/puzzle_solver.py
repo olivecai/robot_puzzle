@@ -41,41 +41,40 @@ def contour_of_mask(mask):
 
 
 def warp(image, config_path=CONFIG_PATH):
-    '''apply the one-time calibration perspective transform + crop.'''
     with open(config_path) as f:
         config = json.load(f)
     M = np.array(config["M"], dtype=np.float64)
     output_size = tuple(config["output_size"])
-    # borderValue=white: any area outside the source image after warping
-    # (e.g. source smaller than output_size) must read as background, not
-    # black, or it gets misread as a giant extra piece downstream.
-    return cv2.warpPerspective(image, M, output_size, borderValue=(255, 255, 255))
-
+    return cv2.warpPerspective(
+        image, M, output_size,
+        flags=cv2.INTER_CUBIC,   # sharper resampling than the default INTER_LINEAR
+        borderValue=(255, 255, 255)
+    )
 
 # ---------------------------------------------------------------------------
 # Live-capture pipeline: pieces are solid black blobs on a white table
 # ---------------------------------------------------------------------------
 
-def clean(image, floor=180, ceiling=200, config_path=CONFIG_PATH):
-    '''
-    crop and edit image for processing --> environment is calibrated once
-    initially; there exists a transformation matrix from valid cartesian
-    space to image space.
-
-    floor/ceiling are black-point/white-point brightness values: pixels at
-    or below floor become black, at or above ceiling become white, and
-    values in between are stretched linearly before a final binary
-    threshold.
-    '''
+def clean(image, config_path=CONFIG_PATH, upsample_factor=2, sharpen_amount=1.5):
     cropped = warp(image, config_path)
     gray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
+    orig_h, orig_w = gray.shape
 
-    stretched = np.clip(gray, floor, ceiling).astype(np.float32)
-    stretched = (stretched - floor) * (255.0 / (ceiling - floor))
+    gray_up = cv2.resize(gray, None, fx=upsample_factor, fy=upsample_factor,
+                          interpolation=cv2.INTER_CUBIC)
 
-    _, bw = cv2.threshold(stretched.astype(np.uint8), 200, 255, cv2.THRESH_BINARY)
+    blurred = cv2.GaussianBlur(gray_up, (0, 0), 3)
+    sharpened = cv2.addWeighted(gray_up, 1 + sharpen_amount, blurred, -sharpen_amount, 0)
+    sharpened = np.clip(sharpened, 0, 255).astype(np.uint8)
+
+    _, bw_up = cv2.threshold(sharpened, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    # downscale back to original resolution -- sharp edges from the
+    # upsampled threshold are preserved much better than if we'd
+    # thresholded at the original low resolution directly
+    bw = cv2.resize(bw_up, (orig_w, orig_h), interpolation=cv2.INTER_NEAREST)
+    _, bw = cv2.threshold(bw, 127, 255, cv2.THRESH_BINARY)  # re-binarize after resize interpolation
     return bw
-
 
 def detect_blobs(bw, min_area=200):
     '''

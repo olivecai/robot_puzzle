@@ -14,8 +14,9 @@ DEPTHAI="depthai"
 
 ### edit the vars below 
 
-SIMULATION = 1
-RECALIBRATE= 0
+SIMULATION = 0
+RECALIBRATE= 1
+CAPTURE_FRESH = 1
 
 
 PUZZLE_TYPE = WIGGLY
@@ -69,5 +70,5 @@ PUZZLE_SOLVED_SIZE_M = (0.35, 0.2)
 # camera never needs to see -- it's reached purely by this fixed real-world
 # translation (robot base-frame meters) applied on top of the normal
 # pixel_to_robot_affine conversion, at place time (see robot_control.py).
-ASSEMBLY_OFFSET_M = (-0.3, 0.0)
+ASSEMBLY_OFFSET_M = (-0.4, 0.0)
 

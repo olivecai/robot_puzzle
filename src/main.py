@@ -33,24 +33,12 @@ from matplotlib.patches import Polygon, Rectangle
 
 import json
 
+from rtde_receive import RTDEReceiveInterface
+from configs.robot import ROBOT_IP
+
 from robot_message_send import robot_message_send
-from configs.robot import ROBOT_IP, PORT
 
-def go_to_pose_camera_capture():
 
-    with open("configs/camera_capture_joint_pose.json") as f:
-        data = json.load(f)
-
-    joints = data["joints"]  # [base, shoulder, elbow, wrist1, wrist2, wrist3] in radians
-
-    script = f"""
-    def go_to_saved_pose():
-        movej([{joints[0]}, {joints[1]}, {joints[2]}, {joints[3]}, {joints[4]}, {joints[5]}], a=0.2, v=0.05)
-    end
-    go_to_saved_pose()
-    """
-
-    robot_message_send(script)
 
 def plot_moves(moves, config_path=CONFIG_PATH, scatter_area_px=SCATTER_AREA_PX,
                 assembly_offset_m=ASSEMBLY_OFFSET_M, puzzle_size_m=PUZZLE_SOLVED_SIZE_M):
@@ -171,10 +159,14 @@ def main():
     
     '''
 
+    rtde_r = RTDEReceiveInterface(ROBOT_IP)
+    robot_control.go_to_pose_camera_capture()
+    robot_control.wait_until_robot_stopped(rtde_r)
     # first create a puzzle object. optional args but you can just set the values in const.py and then run this prog (puzzletype: str = PUZZLE_TYPE, puzzlepath: str = "media/puzzles/puzzle.png", recalibrate: int = RECALIBRATE, simulated: int = SIMULATION) -> Puzzle
-    puzzle = Puzzle(simulated=1)
-    cam = Camera(simulated=0)
-    # cam.capture(image_path=CAPTURE_PATH)
+    puzzle = Puzzle()
+    cam = Camera()
+    if CAPTURE_FRESH:
+        cam.capture(image_path=CAPTURE_PATH)
     raw_image = cv2.imread(CAPTURE_PATH)
     if raw_image is None:
         print(f"No capture found at {CAPTURE_PATH}; skipping black/white preview")
@@ -195,14 +187,15 @@ def main():
     # print("moves")
     # print(moves)
 
+    # print("LOGGING EXITING EARLY TEMPORARY in main()")
+    exit()
     if moves is not None:
         print(f"computed {len(moves)} piece moves -> configs/current_pieces.json")
         plot_moves(moves)
-        robot_control.execute_moves(moves, simulated=0)
+        robot_control.execute_moves(moves, simulated=0, rtde_r=rtde_r)
         
 
 if __name__ == "__main__":
-    go_to_pose_camera_capture()
     main()
 
     

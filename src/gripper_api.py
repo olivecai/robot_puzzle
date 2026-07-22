@@ -57,4 +57,3 @@ class SchmalzGripper:
 
     def off(self):
         pass
-
