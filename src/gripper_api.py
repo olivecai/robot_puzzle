@@ -9,10 +9,11 @@ import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from configs.robot import VACUUM_DIGITAL_OUT
+
 from robot_message_send import robot_message_send
 from const import *
 
+VACUUM_DIGITAL_OUT=1
 '''
 TODO for olivia read this document: https://media.schmalz.com/MAM_Library/Dokumente/Bedienungsanleitung_kurz/30/3030/303001/30300102291/d017758bd2c7_BAK_30.30.01.02291_en-EN.pdf 
 '''

@@ -57,6 +57,7 @@ class WigglyPuzzle:
             self.answerkey_img, apply_calibration=False
         )
 
+
     def solve_current(self):
         '''
         capture -> clean -> detect -> match against the solution key;

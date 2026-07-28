@@ -171,12 +171,12 @@ def main():
     - the following groups should be black boxes to each other: {Puzzle, Gripper, Robot}
     
     '''
-    RTDE_R_SIM = 1
-    rtde_r  = None
-    if not RTDE_R_SIM:
+    rtde_r=None
+    if not SIMULATION:
         rtde_r = RTDEReceiveInterface(ROBOT_IP)
         robot_control.go_to_pose_camera_capture()
         robot_control.wait_until_robot_stopped(rtde_r)
+        
 
     # first create a puzzle object. optional args but you can just set the values in const.py and then run this prog (puzzletype: str = PUZZLE_TYPE, puzzlepath: str = "media/puzzles/puzzle.png", recalibrate: int = RECALIBRATE, simulated: int = SIMULATION) -> Puzzle
     puzzle = Puzzle()
@@ -184,6 +184,8 @@ def main():
     if CAPTURE_FRESH:
         cam.capture(image_path=CAPTURE_PATH)
     raw_image = cv2.imread(CAPTURE_PATH)
+
+
     if raw_image is None:
         print(f"No capture found at {CAPTURE_PATH}; skipping black/white preview")
     else:
@@ -203,11 +205,15 @@ def main():
     # print("moves")
     # print(moves)
 
-    TEMPORARY_SIM = 1
     if moves is not None:
         print(f"computed {len(moves)} piece moves -> configs/current_pieces.json")
         plot_moves(moves)
-        robot_control.execute_moves(moves, simulated=TEMPORARY_SIM, rtde_r=rtde_r)
+        robot_control.execute_moves(moves, simulated=SIMULATION, rtde_r=rtde_r)
+        if not SIMULATION:
+            robot_control.go_to_pose_camera_capture() #job is all done 
+            robot_control.wait_until_robot_stopped(rtde_r)
+
+
         
 
 

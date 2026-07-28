@@ -1,48 +1,59 @@
-# robot_puzzle
-Repository for the UR arm to solve puzzles using CV
+# robot puzzle
 
-## brainstorming
+## software and connectivity setup:
+1. Clone this repository robot_puzzle and cd into robot_puzzle/
+1. In a venv, run `pip install -r requirements.txt`
+3. Turn on the UR and the UR control tablet.
+4. Ensure the UR is in Local mode (tap the icon in the right hand corner of the tablet). If the UR is in Remote Control mode, you will not be able to make modifications in Settings.
+5. On the UR control tablet in Settings > Security > Services, enter password to Unlock and enable:
+    - Primary Client Interface (port 30001) 
+    - RTDEReceiveInterface (port 30004)
+6. On the UR control tablet in Settings > System:
+    - enable Static Address or DHCP. On your PC, you can ping the UR.
+7. On the UR control tablet in the home screen:
+    - enable Remote Control mode by tapping the icon in the right hand corner of the tablet from Local mode.
+    - You can test the network connection by sending a URScript pop up to the tablet. First open a terminal, activate your venv, and then open a python interpreter. Then run the following python script from robot_puzzle repository root:
+        ```
+        import socket
+        from time import sleep
 
-PC Host is plugged into 
+        from robot_message_send import robot_message_send
+        from configs.robot import ROBOT_IP, PORT
 
+        from gripper_api import Gripper
 
-Core files
-puzzle_calibration.py — one-time camera setup
+        # print(f"Creating socket. ip=={ROBOT_IP}, port=={PORT}")
+        # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # print("Socket created.")
+        # print("Connecting...")
+        # s.connect((ROBOT_IP, PORT))
+        # print("Connected.")
+        # print("Sending popup:")
+        # script = "popup(\"Hello from laptop\", \"Test\", False, False, blocking=False)\n"
+        # print("Sent pop up.")
+        # robot_message_send(script)
+        ```
 
-Opens the webcam at 4K, lets you click the 4 corners of the puzzle work-area (the "pickup frame") on a captured frame.
-Computes a perspective-transform matrix (cv2.getPerspectiveTransform) that un-warps the camera's angled view into a top-down rectangle.
-Saves points, the matrix M, and output_size to configs/config.json — this is the calibration every later run relies on.
-puzzle_solution.py — offline pass over a solved reference puzzle image
+8. Plug in the Luxonis camera (USBC) to your PC (USBC or USB).
+9. The Luxonis camera does not enumerate as a device to stream through your PC's camera software (ie Cheese) as far as I know... but you can easily test the camera device by running `python src/camera_api.py` in the repository root, which will capture a photo and save it to your PC as `c.capture(f"testphoto_{datetime.now()}.png")`. (*Note*: the venv created from requirements.txt already has depthai==3.8.0 installed.)
 
-Run manually as python puzzle_solution.py path/to/solved.png 24.
-Thresholds/inverts the image, finds contours (cv2.findContours with RETR_LIST), and keeps the N largest as the individual puzzle pieces.
-For each piece computes: centroid, area, perimeter, Hu moments (rotation/scale/translation-invariant shape descriptors), and a PCA-based orientation (get_robust_orientation) that finds the piece's principal axis and disambiguates 180° flips using third-moment skewness.
-Writes all of this to configs/Puzzle_{N}.json — the "ground truth" solution — plus per-piece colored mask PNGs (configs/piece_{id}_mask.png) used later for IoU matching.
-puzzle_gui.py — the main CustomTkinter application, does the real-time work
+## calibration:
 
-Loads calibration + the target solution JSON.
-Captures a frame (or continuously in "Live Mode"), applies the saved perspective warp, stretches to 16:10, thresholds it, and finds contours for whatever loose pieces are currently visible under the camera — same Hu-moment + PCA-orientation pipeline as above.
-Matching: builds a cost matrix of Hu-moment distances between every detected piece and every target piece, then solves optimal assignment with scipy.optimize.linear_sum_assignment (Hungarian algorithm).
-Orientation disambiguation: since Hu moments and PCA angle can't tell a piece from its 180°-rotated twin, it renders the detected piece's mask, compares IoU against the target mask both normally and rotated 180°, and picks whichever orientation overlaps better.
-Pose output: converts detected/target centroids from pixels to millimeters using known physical frame sizes (pickup tray 520×325mm, target A4 297×210mm), and for each piece reports a translation (mm) and rotation (degrees) — i.e. "move this piece by (Δx, Δy) mm and rotate it θ° to complete the puzzle."
-GUI shows four synced views (raw camera, warped, threshold mask, detected pieces) plus the solution image with an overlay; hovering over a detected piece highlights where it belongs and prints the exact translate/rotate instructions and match confidence (IoU).
-Data flow
+In src/const.py:
 
-Solved puzzle photo → puzzle_solution.py → configs/Puzzle_N.json (target shapes/poses)
-Webcam corners       → puzzle_calibration.py → configs/config.json (perspective matrix)
-Live/scrambled pieces → puzzle_gui.py → warp → threshold → contours → Hu moments/PCA angle
-                                     → Hungarian match against Puzzle_N.json → IoU flip-check
-                                     → per-piece (Δx, Δy, Δθ) instructions
-Notes
-No actual robot-arm control code exists in this repo — despite the project name, it currently only guides (GUI overlay + printed translate/rotate values); presumably a robot controller elsewhere consumes the solution_map output.
-The README.md is out of date: it references puzzle_capture.py, detect_pieces.py, puzzle_solver.py, live_puzzle_highlighter.py, live_puzzle_solver.py, none of which exist — the actual files are puzzle_calibration.py, puzzle_solution.py, puzzle_gui.py. Worth fixing if you want the docs to be trustworthy.
-configs/ currently holds pre-generated data for a specific 24-piece puzzle (piece images, masks, Puzzle_24.json, detected_pieces.png) alongside the live calibration config.json.
+calibration stage 1
+1. first, the robot moves to an optimal pose (configs/camera_capture_joint_pose.json) and then captures an image to path CAPTURE_PATH. 
+2. then the user clicks four points of the captured image to map to a planar rectangle; a transformation matrix is generated from image to real world
 
+calibration stage 2
+1. the user aks 
 
-## data flow
+Settings > System
+- enable Static Address OR DHCP
 
-## todo
-
+In the top right hand corner of the tablet
+- click the "Local" icon to "Remote Control"
+- 
 
 1. camera object --> use SDK or OpenCV https://docs.luxonis.com/software-v3/depthai/ 
 ```

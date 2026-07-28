@@ -133,7 +133,7 @@ def build_pick_place_script(move, affine, rtde_r):
     # rough pre-flight sanity check only -- NOT the value actually sent.
     # Uses whatever joints we're at right now, just to catch a wildly
     # unreachable rotation early; the real baseline is read live below.
-    
+
     current_q = rtde_r.getActualQ()
     preflight_q = find_safe_wrist3(current_q, rotation_delta_rad)
     if preflight_q is None:
@@ -150,10 +150,10 @@ def build_pick_place_script(move, affine, rtde_r):
     margin = np.radians(10)
 
     return {
-        "approach_pick": f"movel({pick_travel}, a=0.2, v=0.04)",
-        "descend_pick": f"movel({pick_grip}, a=0.2, v=0.04)",
-        "lift_after_pick": f"movel({pick_travel}, a=0.2, v=0.04)",
-        "approach_place": f"movel({place_travel}, a=0.2, v=0.04)",
+        "approach_pick": f"movel({pick_travel}, a=0.2, v=0.09)",
+        "descend_pick": f"movel({pick_grip}, a=0.2, v=0.05)",
+        "lift_after_pick": f"movel({pick_travel}, a=0.2, v=0.05)",
+        "approach_place": f"movel({place_travel}, a=0.2, v=0.05)",
         "rotate_at_place": f"""
         local q_now = get_actual_joint_positions()
         local target_w3 = q_now[5] + ({rotation_delta_rad})
@@ -169,12 +169,12 @@ def build_pick_place_script(move, affine, rtde_r):
                 "descend_place": f"""
         local p_now = get_actual_tcp_pose()
         p_now[2] = {PLACE_Z_M}
-        movel(p_now, a=0.2, v=0.04)
+        movel(p_now, a=0.2, v=0.07)
         """,
                 "lift_after_place": f"""
         local p_now = get_actual_tcp_pose()
         p_now[2] = {SAFE_Z_M}
-        movel(p_now, a=0.2, v=0.04)
+        movel(p_now, a=0.2, v=0.07)
         """,
             }
 
@@ -220,7 +220,7 @@ def execute_moves(moves, rtde_r, config_path=CONFIG_PATH, simulated=SIMULATION):
 
     for move in moves:
         if not simulated:
-            go_to_pose_centroid()
+            go_to_pose_ready()
             wait_until_robot_stopped(rtde_r)
         execute_move(move, affine, gripper, simulated, rtde_r)
         if not simulated:
@@ -241,15 +241,15 @@ go_to_saved_pose()
 """
     robot_message_send(script)
 
-def go_to_pose_centroid():
-    with open("configs/calibration/centroid.json") as f:
+def go_to_pose_ready():
+    with open("configs/calibration/ready.json") as f:
         data = json.load(f)
 
     joints = data["joints"]
 
     script = f"""
 def go_to_saved_pose():
-    movej([{joints[0]}, {joints[1]}, {joints[2]}, {joints[3]}, {joints[4]}, {joints[5]}], a=0.2, v=0.8)
+    movej([{joints[0]}, {joints[1]}, {joints[2]}, {joints[3]}, {joints[4]}, {joints[5]}], a=0.2, v=1.0)
 end
 go_to_saved_pose()
 """

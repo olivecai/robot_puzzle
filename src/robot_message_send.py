@@ -9,10 +9,6 @@ from configs.robot import *
 
 from const import *
 
-'''
-ideally this shld work regardless of the type of robot
-'''
-
 def robot_message_send(command: str, ip=ROBOT_IP, port=PORT):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         print("Connecting IP and port...")
