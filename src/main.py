@@ -195,7 +195,8 @@ def main():
 
     if RECALIBRATE:
         puzzle.config = calibrate() # after this step, calibration config.json exists else prog shld panic
-
+        exit()
+        
     print(f"loaded config: {CONFIG_PATH}")
 
     puzzle.build_answerkey()

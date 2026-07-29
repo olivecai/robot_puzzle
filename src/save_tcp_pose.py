@@ -34,29 +34,33 @@ from gripper_api import Gripper
 # show_pose()
 # """)
 
+
 from rtde_receive import RTDEReceiveInterface
 import json
 
 from configs.robot import ROBOT_IP
 
-rtde_r = RTDEReceiveInterface(ROBOT_IP)
+def save_tcp_pose(path):
+    rtde_r = RTDEReceiveInterface(ROBOT_IP)
 
-pose = rtde_r.getActualTCPPose()   # [x, y, z, rx, ry, rz]
-q = rtde_r.getActualQ()             # joint angles in radians
+    pose = rtde_r.getActualTCPPose()   # [x, y, z, rx, ry, rz]
+    q = rtde_r.getActualQ()             # joint angles in radians
 
-print("TCP Pose (x, y, z, rx, ry, rz):", pose)
-print("Joint Positions (rad):", q)
+    print("TCP Pose (x, y, z, rx, ry, rz):", pose)
+    print("Joint Positions (rad):", q)
 
-path= "configs/ready.json"
 
-with open(path, "w") as f:
-    json.dump({"tcp_pose": pose, "joints": q}, f, indent=4)
+    with open(path, "w") as f:
+        json.dump({"tcp_pose": pose, "joints": q}, f, indent=4)
 
-print("Saved to", path)
+    print("Saved to", path)
 
-# g = Gripper(simulated=0)
-# g.on()
-# sleep(2)
-# g.off()
+    print("DONE")
 
-print("DONE")
+if __name__ == "__main__":
+    # save calibration points as configs/calibration/c1.json ,.., configs/calibration/ci.json
+    # save the ready position to assume between moves as configs/ready.json
+    # save the camera capture pose as configs/camera_capture_joint_pose.json
+
+    POSE_PATH = "configs/calibration/c1.json" #EDIT POSE_PATH
+    save_tcp_pose(path=POSE_PATH)

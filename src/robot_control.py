@@ -242,7 +242,7 @@ go_to_saved_pose()
     robot_message_send(script)
 
 def go_to_pose_ready():
-    with open("configs/calibration/ready.json") as f:
+    with open("configs/ready.json") as f:
         data = json.load(f)
 
     joints = data["joints"]

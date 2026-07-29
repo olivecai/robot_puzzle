@@ -2,14 +2,14 @@ import json
 
 # edit this list to your actual filenames, in the order you want the points
 FILENAMES = [
-    "c1.json",
-    "c2.json",
-    "c3.json",
-    "c4.json",
-    "c5.json",
-    "c6.json",
-    "c7.json",
-    "c8.json",
+    "configs/calibration/c1.json",
+    "configs/calibration/c2.json",
+    "configs/calibration/c3.json",
+    "configs/calibration/c4.json",
+    "configs/calibration/c5.json",
+    "configs/calibration/c6.json",
+    "configs/calibration/c7.json",
+    "configs/calibration/c8.json",
 ]
 
 

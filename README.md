@@ -39,54 +39,64 @@
 
 ## calibration:
 
-In src/const.py:
+In src/const.py, you have to change a few values depending on your set up, puzzle, and calibration points. By the end of this section, you should have edited the following const values:
+- RECALIBRATE
+- SIMULATION
+- CAPTURE_FRESH 
+- PUZZLE_TYPE
+- ROBOT_MESSAGE_TYPE
+- GRIPPER_TYPE
+- CAMERA_TYPE
+- PUZZLE_PATH
+- CAPTURE_PATH
+- CONFIG_PATH
+- CURRENT_PIECES_PATH
+- SOLUTION_KEY_PATH
+- SCREEN_WIDTH
+- SCREEN_HEIGHT
+- CALIBRATION_ROBOT_POINTS
+- SCATTER_AREA_PX
+- PUZZLE_SOLVED_SIZE_M_ACTUAL
+- PUZZLE_SOLVED_SIZE_M
+- ASSEMBLY_OFFSET_M
 
-calibration stage 1
-1. first, the robot moves to an optimal pose (configs/camera_capture_joint_pose.json) and then captures an image to path CAPTURE_PATH. 
-2. then the user clicks four points of the captured image to map to a planar rectangle; a transformation matrix is generated from image to real world
+Instructions:
 
-calibration stage 2
-1. the user aks 
+1. Set RECALIBRATE=1, SIMULATION=0, CAPTURE_FRESH=1.
+2. Choose the puzzle you would like to use. Assume you have a black and white photo of your solved puzzle, where black==spaces between puzzle pieces and white==the pieces themselves. Let the location of this puzzle be PUZZLE_PATH.. 
+3. Set the *_TYPE constants: PUZZLE_TYPE, ROBOT_MESSAGE_TYPE, GRIPPER_TYPE, CAMERA_TYPE to the type of API you need. For example, we use the DepthAI API to interface with the Luxonis camera, so currently CAMERA_TYPE=DEPTHAI. These constants should not need to be edited unless a device is switched out or a different puzzle/API should be implemented etc.
+4. Set the *_PATH constants: PUZZLE_PATH, CAPTURE_PATH are both .png paths (PUZZLE_PATH==location of solved solution puzzle png, CAPTURE_PATH==location of raw camera capture save png). CONFIG_PATH, CURRENT_PIECES_PATH, SOLUTION_KEY_PATH are all .json paths (CONFIG_PATH==location of calibration json, CURRENT_PIECES_PATH==location of current live capture json, SOLUTION_KEY_PATH==location of generated solution to solve current scrambled). 
+5. Set the SCREEN_* contants so that the calibration pop up windows to fit inside the dimensions of your PC screen
+6. Set CALIBRATION_ROBOT_POINTS: 
 
-Settings > System
-- enable Static Address OR DHCP
+    i. On the UR control tablet, set the UR to Local mode. 
+    
+    ii. Place a calibration board in the robot workspace. Select 4-9 calibration points.
 
-In the top right hand corner of the tablet
-- click the "Local" icon to "Remote Control"
-- 
+    iii. For each chosen calibration point c{i} do: in freehand mode, move the robot to the location on the calibration board. Then, edit the python file `src/save_tcp_pose.py` line 65 to `POSE_PATH = "configs/calibration/c{i}.json"`.  Run `python src/save_tcp_pose.py`. 
 
-1. camera object --> use SDK or OpenCV https://docs.luxonis.com/software-v3/depthai/ 
-```
-pip install depthai --force-reinstall
+    iv. Run `python configs/calibration/scrape_calib_pnts.py`, which prints output to the terminal. Copy CALIBRATION_ROBOT_POINTS=[...] into const.py
 
-cd examples/python
-# Run YoloV6 detection example
-python3 DetectionNetwork/detection_network.py
-# Display all camera streams
-python3 Camera/camera_all.py
-```
-https://docs.luxonis.com/software-v3/depthai/api/python/
+7. Take a picture of the scrambled puzzle workspace (currently camera sees calibration board):
 
+    i. Run the following in a python interpreter to check if the current capture pose saved at configs/camera_capture_joint_pose.json is appropriate for the robot: 
+    '''
+    import robot_control
+    robot_control.go_to_pose_camera_capture()
+    '''  
+    
+    ii. If you would like to overwrite the capture pose: edit the python file `src/save_tcp_pose.py` line 65 to `POSE_PATH = "configs/camera_capture_joint_pose.json"`. Move the arm to a position appropriate for imaging the scrambled puzzle workspace. Write the pose by running `python src/save_tcp_pose.py`
 
+    iii. Ensure the robot is in the capture pose; take a photo by running `python src/camera_api.py`. Rename/move this newly captured image to the path specified by var CAPTURE_PATH from const.py.
 
-## impl
+8. Run `python src/main.py` to capture a fresh image and trigger the recalibrate sequence. For the first calibration pop up, select the four points of the puzzle scatter workspace in clockwise order starting in the top left hand corner. For the second calibration pop up, select the calibration points in the order that they are stored in the list CALIBRATION_ROBOT_POINTS. 
 
-camera acquisition works, run setup_udev_rules.sh for devices perms and then run camera_api.py
+9. Set RECALIBRATE=0 in const.py.
+   
+10. Set SCATTER_AREA_PX = (0, 0, x, y) where (x, y) is directly from calibration/config.json "output_size".
 
-### UR ROBOT 
+11. Set PUZZLE_SOLVED_SIZE_M_ACTUAL = (width, length) of the puzzle in m.
 
-Settings > Security > Services 
-- enter password to Unlock
-- enable Primary Client Interface
+12. Set PUZZLE_SOLVED_SIZE_M = (width + eps, length + eps) where eps is a small 0.1-0.5 value of gap between pieces. 
 
-Settings > System
-- enable Static Address OR DHCP
-
-In the top right hand corner of the tablet
-- click the "Local" icon to "Remote Control"
-
-
-
-### CALIBRATING
-
-- bottom right corner:
+13. Done.
