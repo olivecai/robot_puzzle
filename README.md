@@ -1,5 +1,7 @@
 # robot puzzle
 
+Read this for setting up and calibration.
+
 ## software and connectivity setup:
 1. Clone this repository robot_puzzle and cd into robot_puzzle/
 1. In a venv, run `pip install -r requirements.txt`
@@ -43,11 +45,11 @@ In src/const.py, you have to change a few values depending on your set up, puzzl
 - RECALIBRATE
 - SIMULATION
 - CAPTURE_FRESH 
+- PUZZLE_CONFIGS (per-PUZZLE_TYPE entry: module, PUZZLE_PATH, PUZZLE_SOLVED_SIZE_M)
 - PUZZLE_TYPE
 - ROBOT_MESSAGE_TYPE
 - GRIPPER_TYPE
 - CAMERA_TYPE
-- PUZZLE_PATH
 - CAPTURE_PATH
 - CONFIG_PATH
 - CURRENT_PIECES_PATH
@@ -56,16 +58,14 @@ In src/const.py, you have to change a few values depending on your set up, puzzl
 - SCREEN_HEIGHT
 - CALIBRATION_ROBOT_POINTS
 - SCATTER_AREA_PX
-- PUZZLE_SOLVED_SIZE_M_ACTUAL
-- PUZZLE_SOLVED_SIZE_M
 - ASSEMBLY_OFFSET_M
 
 Instructions:
 
 1. Set RECALIBRATE=1, SIMULATION=0, CAPTURE_FRESH=1.
-2. Choose the puzzle you would like to use. Assume you have a black and white photo of your solved puzzle, where black==spaces between puzzle pieces and white==the pieces themselves. Let the location of this puzzle be PUZZLE_PATH.. 
-3. Set the *_TYPE constants: PUZZLE_TYPE, ROBOT_MESSAGE_TYPE, GRIPPER_TYPE, CAMERA_TYPE to the type of API you need. For example, we use the DepthAI API to interface with the Luxonis camera, so currently CAMERA_TYPE=DEPTHAI. These constants should not need to be edited unless a device is switched out or a different puzzle/API should be implemented etc.
-4. Set the *_PATH constants: PUZZLE_PATH, CAPTURE_PATH are both .png paths (PUZZLE_PATH==location of solved solution puzzle png, CAPTURE_PATH==location of raw camera capture save png). CONFIG_PATH, CURRENT_PIECES_PATH, SOLUTION_KEY_PATH are all .json paths (CONFIG_PATH==location of calibration json, CURRENT_PIECES_PATH==location of current live capture json, SOLUTION_KEY_PATH==location of generated solution to solve current scrambled). 
+2. Choose the puzzle you would like to use. Assume you have a black and white photo of your solved puzzle, where black==spaces between puzzle pieces and white==the pieces themselves. In const.py's PUZZLE_CONFIGS, add/edit the entry for your PUZZLE_TYPE and set its "path" to the location of this puzzle (this becomes PUZZLE_PATH).
+3. Set the *_TYPE constants: PUZZLE_TYPE, ROBOT_MESSAGE_TYPE, GRIPPER_TYPE, CAMERA_TYPE to the type of API you need. For example, we use the DepthAI API to interface with the Luxonis camera, so currently CAMERA_TYPE=DEPTHAI. PUZZLE_TYPE must be a key already registered in PUZZLE_CONFIGS. These constants should not need to be edited unless a device is switched out or a different puzzle/API should be implemented etc.
+4. Set the *_PATH constants: PUZZLE_PATH (set via PUZZLE_CONFIGS[PUZZLE_TYPE]["path"], see step 2), CAPTURE_PATH are both .png paths (PUZZLE_PATH==location of solved solution puzzle png, CAPTURE_PATH==location of raw camera capture save png). CONFIG_PATH, CURRENT_PIECES_PATH, SOLUTION_KEY_PATH are all .json paths (CONFIG_PATH==location of calibration json, CURRENT_PIECES_PATH==location of current live capture json, SOLUTION_KEY_PATH==location of generated solution to solve current scrambled). 
 5. Set the SCREEN_* contants so that the calibration pop up windows to fit inside the dimensions of your PC screen
 6. Set CALIBRATION_ROBOT_POINTS: 
 
@@ -93,10 +93,11 @@ Instructions:
 
 9. Set RECALIBRATE=0 in const.py.
    
-10. Set SCATTER_AREA_PX = (0, 0, x, y) where (x, y) is directly from calibration/config.json "output_size".
+10. Set SCATTER_AREA_PX = (0, 0, x, y) where (x, y) is copied over from calibration/config.json "output_size". 
 
-11. Set PUZZLE_SOLVED_SIZE_M_ACTUAL = (width, length) of the puzzle in m.
+11. Measure the actual (width, length) of the assembled puzzle in m.
 
-12. Set PUZZLE_SOLVED_SIZE_M = (width + eps, length + eps) where eps is a small 0.1-0.5 value of gap between pieces. 
+12. In const.py's PUZZLE_CONFIGS, set your PUZZLE_TYPE entry's "solved_size_m" = (width + eps, length + eps), where (width, length) is the measurement from step 11 and eps is a small 0.1-0.5 value of gap between pieces. This becomes PUZZLE_SOLVED_SIZE_M.
 
-13. Done.
+13. Done. Now that the calibration is done, you can run the robot puzzling solving demo with CAPTURE_FRESH=1, SIMULATION=0, and RECALIBRATE=0 for different puzzles by simply changing the PUZZLE in const.py
+

@@ -471,7 +471,7 @@ def match_and_align(blobs, solution_pieces, n_points=150, coarse_step_deg=5, fin
         print(f"Warning: {n_blobs} detected blob(s) vs {n_pieces} solution piece(s) -- "
               f"unmatched solution piece(s): {missing}")
     
-
+    print("logging from puzzle_solver.py: json dump to PREVIEW_SOLUTION.json")
     with open("PREVIEW_SOLUTION.json", "w") as f:
         json.dump({"pieces": view_solution}, f, indent=4)
 

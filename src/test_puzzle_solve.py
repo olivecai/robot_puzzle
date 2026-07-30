@@ -21,6 +21,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
+import importlib
 import json
 import random
 import tempfile
@@ -28,16 +29,20 @@ import tempfile
 import cv2
 import numpy as np
 
-from media.puzzles.wiggly.puzzle_solver import (
-    build_solution_key,
-    clean,
-    detect_blobs,
-    load_solution,
-    match_and_align,
-    principal_angle,
-)
-
 from const import *
+
+# solver module for the puzzle type selected in const.py (PUZZLE_TYPE)
+_puzzle_solver = importlib.import_module(PUZZLE_CONFIGS[PUZZLE_TYPE]["module"])
+build_solution_key = _puzzle_solver.build_solution_key
+clean = _puzzle_solver.clean
+detect_blobs = _puzzle_solver.detect_blobs
+load_solution = _puzzle_solver.load_solution
+match_and_align = _puzzle_solver.match_and_align
+# wiggly names this principal_angle (PCA-based), jigsaw names its equivalent
+# piece_orientation (minAreaRect-based) -- see jigsaw puzzle_solver.py's
+# piece_orientation docstring; both give a reproducible per-piece zero-angle
+# used only for the debug overlay arrow below.
+principal_angle = getattr(_puzzle_solver, "principal_angle", None) or _puzzle_solver.piece_orientation
 
 ANSWER_KEY_IMG = PUZZLE_PATH
 SOLUTION_KEY_PATH = SOLUTION_KEY_PATH

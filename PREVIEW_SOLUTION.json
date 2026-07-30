@@ -1,0 +1,220 @@
+{
+    "pieces": [
+        {
+            "id": 2,
+            "current_centroid": [
+                1584.58,
+                426.76
+            ],
+            "target_centroid": [
+                665.6,
+                127.48
+            ],
+            "translation": [
+                -918.98,
+                -299.28
+            ],
+            "rotation_delta_rad": 2.5569,
+            "area": 39998,
+            "shape_match_score": 1.9367
+        },
+        {
+            "id": 1,
+            "current_centroid": [
+                951.07,
+                392.48
+            ],
+            "target_centroid": [
+                383.31,
+                127.52
+            ],
+            "translation": [
+                -567.76,
+                -264.96
+            ],
+            "rotation_delta_rad": 0.3229,
+            "area": 46876,
+            "shape_match_score": 1.8542
+        },
+        {
+            "id": 0,
+            "current_centroid": [
+                349.84,
+                433.67
+            ],
+            "target_centroid": [
+                132.4,
+                121.13
+            ],
+            "translation": [
+                -217.44,
+                -312.54
+            ],
+            "rotation_delta_rad": -1.6581,
+            "area": 42420,
+            "shape_match_score": 1.4802
+        },
+        {
+            "id": 3,
+            "current_centroid": [
+                2098.59,
+                432.44
+            ],
+            "target_centroid": [
+                872.95,
+                121.68
+            ],
+            "translation": [
+                -1225.64,
+                -310.76
+            ],
+            "rotation_delta_rad": 0.4276,
+            "area": 37559,
+            "shape_match_score": 1.1763
+        },
+        {
+            "id": 4,
+            "current_centroid": [
+                423.78,
+                921.44
+            ],
+            "target_centroid": [
+                381.46,
+                375.87
+            ],
+            "translation": [
+                -42.32,
+                -545.57
+            ],
+            "rotation_delta_rad": 0.3403,
+            "area": 77789,
+            "shape_match_score": 1.7604
+        },
+        {
+            "id": 5,
+            "current_centroid": [
+                1005.97,
+                948.1
+            ],
+            "target_centroid": [
+                632.77,
+                354.05
+            ],
+            "translation": [
+                -373.2,
+                -594.05
+            ],
+            "rotation_delta_rad": -2.7925,
+            "area": 68082,
+            "shape_match_score": 2.2277
+        },
+        {
+            "id": 6,
+            "current_centroid": [
+                1613.89,
+                924.85
+            ],
+            "target_centroid": [
+                111.37,
+                383.32
+            ],
+            "translation": [
+                -1502.52,
+                -541.53
+            ],
+            "rotation_delta_rad": 2.9671,
+            "area": 76017,
+            "shape_match_score": 1.7672
+        },
+        {
+            "id": 7,
+            "current_centroid": [
+                2158.81,
+                1031.69
+            ],
+            "target_centroid": [
+                891.83,
+                359.32
+            ],
+            "translation": [
+                -1266.98,
+                -672.37
+            ],
+            "rotation_delta_rad": 0.7592,
+            "area": 47449,
+            "shape_match_score": 1.0598
+        },
+        {
+            "id": 10,
+            "current_centroid": [
+                1535.46,
+                1535.2
+            ],
+            "target_centroid": [
+                119.82,
+                637.83
+            ],
+            "translation": [
+                -1415.64,
+                -897.37
+            ],
+            "rotation_delta_rad": 1.7715,
+            "area": 36881,
+            "shape_match_score": 1.6815
+        },
+        {
+            "id": 8,
+            "current_centroid": [
+                359.82,
+                1557.67
+            ],
+            "target_centroid": [
+                677.57,
+                602.55
+            ],
+            "translation": [
+                317.75,
+                -955.12
+            ],
+            "rotation_delta_rad": 2.9671,
+            "area": 60609,
+            "shape_match_score": 1.6365
+        },
+        {
+            "id": 9,
+            "current_centroid": [
+                947.3,
+                1559.71
+            ],
+            "target_centroid": [
+                893.29,
+                622.98
+            ],
+            "translation": [
+                -54.01,
+                -936.73
+            ],
+            "rotation_delta_rad": 0.0262,
+            "area": 37201,
+            "shape_match_score": 0.6502
+        },
+        {
+            "id": 11,
+            "current_centroid": [
+                2149.32,
+                1542.28
+            ],
+            "target_centroid": [
+                378.25,
+                637.7
+            ],
+            "translation": [
+                -1771.07,
+                -904.58
+            ],
+            "rotation_delta_rad": 3.0107,
+            "area": 50957,
+            "shape_match_score": 1.22
+        }
+    ]
+}

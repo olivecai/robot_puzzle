@@ -14,6 +14,7 @@ Classes for Camera, Gripper, RobotMessage exist as API wrappers, so that you can
 Class for Puzzle exists so that you can solve different kinds of puzzles
 
 '''
+import importlib
 import json
 import os
 from datetime import datetime
@@ -24,8 +25,12 @@ from puzzle import Puzzle
 from camera_api import Camera
 
 from calibrate_static import calibrate
-import media.puzzles.wiggly.puzzle_solver as puzzle_solver
 from const import *
+
+# solver module for the puzzle type selected in const.py (PUZZLE_TYPE); each
+# type in PUZZLE_CONFIGS implements the same clean/build_solution_key/
+# process_frame/... interface, so main() doesn't need to branch on type.
+puzzle_solver = importlib.import_module(PUZZLE_CONFIGS[PUZZLE_TYPE]["module"])
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -178,7 +183,7 @@ def main():
         robot_control.wait_until_robot_stopped(rtde_r)
         
 
-    # first create a puzzle object. optional args but you can just set the values in const.py and then run this prog (puzzletype: str = PUZZLE_TYPE, puzzlepath: str = "media/puzzles/puzzle.png", recalibrate: int = RECALIBRATE, simulated: int = SIMULATION) -> Puzzle
+    # first create a puzzle object. optional args but you can just set the values in const.py and then run this prog (puzzletype: str = PUZZLE_TYPE, puzzlepath: str = "puzzles/puzzle.png", recalibrate: int = RECALIBRATE, simulated: int = SIMULATION) -> Puzzle
     puzzle = Puzzle()
     cam = Camera()
     if CAPTURE_FRESH:
@@ -196,21 +201,23 @@ def main():
     if RECALIBRATE:
         puzzle.config = calibrate() # after this step, calibration config.json exists else prog shld panic
         exit()
-        
+
     print(f"loaded config: {CONFIG_PATH}")
 
     puzzle.build_answerkey()
     print(f"solution key built: {len(puzzle.get_solution_pieces())} pieces")
 
+    print("solution pieces and scattered pieces identification and matching...")
     moves = puzzle.solve_current()
+    
     # print("moves")
     # print(moves)
 
-    if moves is not None:
-        print(f"computed {len(moves)} piece moves -> configs/current_pieces.json")
-        plot_moves(moves)
-        robot_control.execute_moves(moves, simulated=SIMULATION, rtde_r=rtde_r)
-        if not SIMULATION:
+    if not SIMULATION:
+        if moves is not None:
+            print(f"computed {len(moves)} piece moves -> configs/current_pieces.json")
+            plot_moves(moves)
+            robot_control.execute_moves(moves, simulated=SIMULATION, rtde_r=rtde_r)
             robot_control.go_to_pose_camera_capture() #job is all done 
             robot_control.wait_until_robot_stopped(rtde_r)
 

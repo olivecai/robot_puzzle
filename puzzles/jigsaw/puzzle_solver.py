@@ -14,7 +14,7 @@ def piece_orientation(cnt):
     '''
     determine a jigsaw piece's rotation, in [-pi, pi), from its minimum-area
     bounding rectangle rather than an inertia-tensor PCA axis (as used for
-    the "wiggly" puzzle type -- see media/puzzles/wiggly/puzzle_solver.py's
+    the "wiggly" puzzle type -- see puzzles/wiggly/puzzle_solver.py's
     principal_angle). Standard jigsaw pieces are near-square with small
     tab/blank perturbations on each side; PCA on the mass distribution can
     be unstable for this shape family -- a tab on one side and a blank on
