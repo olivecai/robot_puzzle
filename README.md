@@ -4,7 +4,7 @@ Using computer vision techniques, solve and assemble a puzzle using a UR 10e rob
 
 *This repository was created by Olivia Cai as a RISE Germany 2026 research intern for the Leibniz University Hannover's Institute of Assembly Technology and Robotics.*
 
-![](readme_media/robotpuzzledemo.gif)
+![](readme_media/ROBOPUZZLEVID.gif)
 
 
 For **software development** and setting up the repository with real hardware, read file `SETUP.md` in this repository.
