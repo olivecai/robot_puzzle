@@ -1,220 +1,220 @@
 {
     "pieces": [
         {
-            "id": 2,
-            "current_centroid": [
-                1584.58,
-                426.76
-            ],
-            "target_centroid": [
-                665.6,
-                127.48
-            ],
-            "translation": [
-                -918.98,
-                -299.28
-            ],
-            "rotation_delta_rad": 2.5569,
-            "area": 39998,
-            "shape_match_score": 1.9367
-        },
-        {
-            "id": 1,
-            "current_centroid": [
-                951.07,
-                392.48
-            ],
-            "target_centroid": [
-                383.31,
-                127.52
-            ],
-            "translation": [
-                -567.76,
-                -264.96
-            ],
-            "rotation_delta_rad": 0.3229,
-            "area": 46876,
-            "shape_match_score": 1.8542
-        },
-        {
-            "id": 0,
-            "current_centroid": [
-                349.84,
-                433.67
-            ],
-            "target_centroid": [
-                132.4,
-                121.13
-            ],
-            "translation": [
-                -217.44,
-                -312.54
-            ],
-            "rotation_delta_rad": -1.6581,
-            "area": 42420,
-            "shape_match_score": 1.4802
-        },
-        {
-            "id": 3,
-            "current_centroid": [
-                2098.59,
-                432.44
-            ],
-            "target_centroid": [
-                872.95,
-                121.68
-            ],
-            "translation": [
-                -1225.64,
-                -310.76
-            ],
-            "rotation_delta_rad": 0.4276,
-            "area": 37559,
-            "shape_match_score": 1.1763
-        },
-        {
-            "id": 4,
-            "current_centroid": [
-                423.78,
-                921.44
-            ],
-            "target_centroid": [
-                381.46,
-                375.87
-            ],
-            "translation": [
-                -42.32,
-                -545.57
-            ],
-            "rotation_delta_rad": 0.3403,
-            "area": 77789,
-            "shape_match_score": 1.7604
-        },
-        {
-            "id": 5,
-            "current_centroid": [
-                1005.97,
-                948.1
-            ],
-            "target_centroid": [
-                632.77,
-                354.05
-            ],
-            "translation": [
-                -373.2,
-                -594.05
-            ],
-            "rotation_delta_rad": -2.7925,
-            "area": 68082,
-            "shape_match_score": 2.2277
-        },
-        {
-            "id": 6,
-            "current_centroid": [
-                1613.89,
-                924.85
-            ],
-            "target_centroid": [
-                111.37,
-                383.32
-            ],
-            "translation": [
-                -1502.52,
-                -541.53
-            ],
-            "rotation_delta_rad": 2.9671,
-            "area": 76017,
-            "shape_match_score": 1.7672
-        },
-        {
-            "id": 7,
-            "current_centroid": [
-                2158.81,
-                1031.69
-            ],
-            "target_centroid": [
-                891.83,
-                359.32
-            ],
-            "translation": [
-                -1266.98,
-                -672.37
-            ],
-            "rotation_delta_rad": 0.7592,
-            "area": 47449,
-            "shape_match_score": 1.0598
-        },
-        {
-            "id": 10,
-            "current_centroid": [
-                1535.46,
-                1535.2
-            ],
-            "target_centroid": [
-                119.82,
-                637.83
-            ],
-            "translation": [
-                -1415.64,
-                -897.37
-            ],
-            "rotation_delta_rad": 1.7715,
-            "area": 36881,
-            "shape_match_score": 1.6815
-        },
-        {
             "id": 8,
             "current_centroid": [
-                359.82,
-                1557.67
+                670.92,
+                142.74
             ],
             "target_centroid": [
                 677.57,
                 602.55
             ],
             "translation": [
-                317.75,
-                -955.12
+                6.65,
+                459.81
             ],
-            "rotation_delta_rad": 2.9671,
-            "area": 60609,
-            "shape_match_score": 1.6365
+            "rotation_delta_rad": -0.1309,
+            "area": 53163,
+            "shape_match_score": 6.8788
         },
         {
-            "id": 9,
+            "id": 0,
             "current_centroid": [
-                947.3,
-                1559.71
+                963.76,
+                144.39
             ],
             "target_centroid": [
-                893.29,
-                622.98
+                132.4,
+                121.13
             ],
             "translation": [
-                -54.01,
-                -936.73
+                -831.36,
+                -23.26
             ],
-            "rotation_delta_rad": 0.0262,
-            "area": 37201,
-            "shape_match_score": 0.6502
+            "rotation_delta_rad": -0.0524,
+            "area": 36621,
+            "shape_match_score": 6.869
+        },
+        {
+            "id": 1,
+            "current_centroid": [
+                181.6,
+                254.66
+            ],
+            "target_centroid": [
+                383.31,
+                127.52
+            ],
+            "translation": [
+                201.71,
+                -127.14
+            ],
+            "rotation_delta_rad": 1.1781,
+            "area": 43472,
+            "shape_match_score": 4.4416
+        },
+        {
+            "id": 4,
+            "current_centroid": [
+                1350.3,
+                277.09
+            ],
+            "target_centroid": [
+                381.46,
+                375.87
+            ],
+            "translation": [
+                -968.84,
+                98.78
+            ],
+            "rotation_delta_rad": -2.0246,
+            "area": 68952,
+            "shape_match_score": 7.864
+        },
+        {
+            "id": 10,
+            "current_centroid": [
+                395.66,
+                311.65
+            ],
+            "target_centroid": [
+                119.82,
+                637.83
+            ],
+            "translation": [
+                -275.84,
+                326.18
+            ],
+            "rotation_delta_rad": -1.4661,
+            "area": 33133,
+            "shape_match_score": 5.142
+        },
+        {
+            "id": 6,
+            "current_centroid": [
+                745.54,
+                430.12
+            ],
+            "target_centroid": [
+                111.37,
+                383.32
+            ],
+            "translation": [
+                -634.17,
+                -46.8
+            ],
+            "rotation_delta_rad": 1.5533,
+            "area": 65494,
+            "shape_match_score": 9.6714
+        },
+        {
+            "id": 3,
+            "current_centroid": [
+                1077.69,
+                423.06
+            ],
+            "target_centroid": [
+                872.95,
+                121.68
+            ],
+            "translation": [
+                -204.74,
+                -301.38
+            ],
+            "rotation_delta_rad": 3.0107,
+            "area": 32141,
+            "shape_match_score": 7.4922
         },
         {
             "id": 11,
             "current_centroid": [
-                2149.32,
-                1542.28
+                182.97,
+                569.23
             ],
             "target_centroid": [
                 378.25,
                 637.7
             ],
             "translation": [
-                -1771.07,
-                -904.58
+                195.28,
+                68.47
             ],
-            "rotation_delta_rad": 3.0107,
-            "area": 50957,
-            "shape_match_score": 1.22
+            "rotation_delta_rad": 1.6319,
+            "area": 47664,
+            "shape_match_score": 5.2173
+        },
+        {
+            "id": 9,
+            "current_centroid": [
+                418.59,
+                598.6
+            ],
+            "target_centroid": [
+                893.29,
+                622.98
+            ],
+            "translation": [
+                474.7,
+                24.38
+            ],
+            "rotation_delta_rad": -2.7925,
+            "area": 33386,
+            "shape_match_score": 4.9431
+        },
+        {
+            "id": 2,
+            "current_centroid": [
+                1336.12,
+                655.0
+            ],
+            "target_centroid": [
+                665.6,
+                127.48
+            ],
+            "translation": [
+                -670.52,
+                -527.52
+            ],
+            "rotation_delta_rad": -1.7017,
+            "area": 34843,
+            "shape_match_score": 5.5705
+        },
+        {
+            "id": 5,
+            "current_centroid": [
+                1052.61,
+                683.6
+            ],
+            "target_centroid": [
+                632.77,
+                354.05
+            ],
+            "translation": [
+                -419.84,
+                -329.55
+            ],
+            "rotation_delta_rad": -1.7628,
+            "area": 58776,
+            "shape_match_score": 7.9541
+        },
+        {
+            "id": 7,
+            "current_centroid": [
+                705.63,
+                672.06
+            ],
+            "target_centroid": [
+                891.83,
+                359.32
+            ],
+            "translation": [
+                186.2,
+                -312.74
+            ],
+            "rotation_delta_rad": 1.4835,
+            "area": 41148,
+            "shape_match_score": 7.3852
         }
     ]
 }

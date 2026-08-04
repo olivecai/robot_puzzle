@@ -213,13 +213,13 @@ def main():
     # print("moves")
     # print(moves)
 
-    if not SIMULATION:
-        if moves is not None:
-            print(f"computed {len(moves)} piece moves -> configs/current_pieces.json")
+    if moves is not None:
             plot_moves(moves)
-            robot_control.execute_moves(moves, simulated=SIMULATION, rtde_r=rtde_r)
-            robot_control.go_to_pose_camera_capture() #job is all done 
-            robot_control.wait_until_robot_stopped(rtde_r)
+            if not SIMULATION:
+                print(f"computed {len(moves)} piece moves -> configs/current_pieces.json")
+                robot_control.execute_moves(moves, simulated=SIMULATION, rtde_r=rtde_r)
+                robot_control.go_to_pose_camera_capture() #job is all done 
+                robot_control.wait_until_robot_stopped(rtde_r)
 
 
         
